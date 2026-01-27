@@ -18,9 +18,9 @@ config = context.config
 # Set sqlalchemy.url from environment
 db_url = settings.database_url
 if db_url.startswith("postgresql+asyncpg://"):
-    db_url = db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
 elif db_url.startswith("postgresql://"):
-    pass  # already sync format
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
 config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging
