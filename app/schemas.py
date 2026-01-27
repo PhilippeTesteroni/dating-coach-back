@@ -1,5 +1,20 @@
 from typing import Optional
 from pydantic import BaseModel, Field
+from enum import Enum
+
+
+# ============ Enums ============
+
+class Gender(str, Enum):
+    male = "male"
+    female = "female"
+    other = "other"
+
+
+class PreferredGender(str, Enum):
+    all = "all"
+    male = "male"
+    female = "female"
 
 
 # ============ Auth Schemas ============
@@ -28,6 +43,33 @@ class AuthResponse(BaseModel):
 class BalanceResponse(BaseModel):
     """Response for balance endpoint"""
     balance: int
+
+
+class ProfileResponse(BaseModel):
+    """User profile data"""
+    user_id: str
+    name: Optional[str] = None
+    gender: Optional[Gender] = None
+    preferred_gender: PreferredGender = PreferredGender.all
+    age_range_min: int = 18
+    age_range_max: int = 99
+    avatar_url: Optional[str] = None
+
+
+class ProfileUpdateRequest(BaseModel):
+    """Request to update profile"""
+    name: Optional[str] = Field(None, max_length=100)
+    gender: Optional[Gender] = None
+    preferred_gender: Optional[PreferredGender] = None
+    age_range_min: Optional[int] = Field(None, ge=18, le=99)
+    age_range_max: Optional[int] = Field(None, ge=18, le=99)
+    avatar_url: Optional[str] = Field(None, max_length=500)
+
+
+class AvatarUploadUrlResponse(BaseModel):
+    """Presigned URL for avatar upload"""
+    upload_url: str
+    avatar_url: str  # Final URL after upload
 
 
 # ============ Health Schemas ============

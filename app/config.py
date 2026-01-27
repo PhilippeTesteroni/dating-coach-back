@@ -8,6 +8,15 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8007
     
+    # Database
+    database_url: str = "postgresql+asyncpg://localhost/shitty_apps"
+    
+    # AWS S3
+    s3_bucket: str = "shittyapps-media"
+    aws_region: str = "us-east-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    
     # Microservices URLs
     identity_service_url: str = "http://localhost:8001"
     config_service_url: str = "http://localhost:8002"

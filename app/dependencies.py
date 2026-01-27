@@ -1,32 +1,27 @@
-from uuid import UUID
+from fastapi import Header, HTTPException, status
 from typing import Optional
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from uuid import UUID
 import jwt
 
 from app.config import settings
 
-security = HTTPBearer()
 
-
-async def get_jwt_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> str:
-    """Extract raw JWT token from Authorization header"""
-    return credentials.credentials
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+async def get_current_user_id(
+    authorization: Optional[str] = Header(None)
 ) -> UUID:
     """
-    Extract user_id from JWT token.
+    Extract user_id from JWT token in Authorization header.
     
-    Validates token and returns user_id.
-    Raises 401 if token is invalid or expired.
+    Raises:
+        401: If token is missing or invalid
     """
-    token = credentials.credentials
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header"
+        )
+    
+    token = authorization.replace("Bearer ", "")
     
     try:
         payload = jwt.decode(
@@ -34,8 +29,8 @@ async def get_current_user(
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm]
         )
-        
         user_id = payload.get("user_id")
+        
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,8 +44,8 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired"
         )
-    except jwt.InvalidTokenError as e:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}"
+            detail="Invalid token"
         )
