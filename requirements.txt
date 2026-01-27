@@ -8,5 +8,8 @@ pydantic-settings==2.7.1
 # HTTP client
 httpx==0.28.1
 
+# JWT
+PyJWT==2.10.1
+
 # Utilities
 python-multipart==0.0.20

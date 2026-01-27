@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 import httpx
+import logging
 
 from app.client import service_client
 from app.schemas import (
@@ -9,6 +10,10 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
+
+# Welcome bonus for new users (TODO: move to Config Service)
+WELCOME_BONUS = 30
 
 
 @router.post("/register", response_model=AuthResponse)
@@ -23,17 +28,33 @@ async def register(request: RegisterRequest) -> AuthResponse:
     1. App sends device_id + platform
     2. dating-coach-api proxies to Identity Service
     3. Identity resolves/creates user, returns JWT tokens
-    4. App stores tokens for future requests
+    4. Check/create balance with welcome bonus for new users
+    5. App stores tokens for future requests
     """
     try:
+        # Step 1: Get auth tokens from Identity
         data = await service_client.get_auth_token(
             device_id=request.device_id,
             platform=request.platform,
         )
         
+        token = data["access_token"]
+        
+        # Step 2: Initialize balance with welcome bonus
+        # Payment Service will create balance only if user is new
+        try:
+            balance_data = await service_client.check_balance(
+                jwt_token=token,
+                welcome_bonus=WELCOME_BONUS
+            )
+            logger.info(f"✅ [Register] Balance initialized: {balance_data.get('balance')} credits")
+        except Exception as e:
+            # Non-critical: log but don't fail registration
+            logger.warning(f"⚠️ [Register] Failed to init balance: {e}")
+        
         return AuthResponse(
             user_id=data["user_id"],
-            token=data["access_token"],
+            token=token,
             refresh_token=data["refresh_token"],
         )
         

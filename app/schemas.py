@@ -23,6 +23,13 @@ class AuthResponse(BaseModel):
     expires_at: Optional[str] = None
 
 
+# ============ User Schemas ============
+
+class BalanceResponse(BaseModel):
+    """Response for balance endpoint"""
+    balance: int
+
+
 # ============ Health Schemas ============
 
 class HealthResponse(BaseModel):

@@ -83,6 +83,66 @@ class ServiceClient:
         except httpx.HTTPStatusError:
             return None
 
+    async def check_balance(
+        self,
+        jwt_token: str,
+        welcome_bonus: int = None
+    ) -> Dict[str, Any]:
+        """
+        Get user balance from Payment Service.
+        
+        Args:
+            jwt_token: JWT access token (contains user_id)
+            welcome_bonus: Bonus for new users (from Config Service)
+        """
+        url = f"{settings.payment_service_url}/v1/payment/balance"
+        params = {}
+        if welcome_bonus is not None:
+            params["welcome_bonus"] = welcome_bonus
+        
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+        
+        logger.info(f"🚀 [Payment] GET {url}")
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                
+                data = response.json()
+                logger.info(f"✅ [Payment] balance={data.get('balance')}")
+                return data
+                
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [Payment] HTTP {e.response.status_code}: {e.response.text}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"❌ [Payment] Request failed: {e}")
+            raise
+
+    async def get_app_settings(self) -> Dict[str, Any]:
+        """Get app settings from Config Service"""
+        url = f"{settings.config_service_url}/v1/config/app-settings"
+        params = {"app_id": settings.app_id}
+        
+        logger.info(f"🚀 [Config] GET {url}")
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                
+                data = response.json()
+                logger.info(f"✅ [Config] settings loaded")
+                return data
+                
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [Config] HTTP {e.response.status_code}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"❌ [Config] Request failed: {e}")
+            raise
+
 
 # Global instance
 service_client = ServiceClient()
