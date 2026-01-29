@@ -28,6 +28,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     """Request for user login"""
     device_id: str = Field(..., min_length=1, max_length=255)
+    platform: str = Field(default="android", max_length=50)
 
 
 class AuthResponse(BaseModel):

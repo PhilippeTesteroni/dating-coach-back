@@ -81,7 +81,7 @@ async def login(request: LoginRequest) -> AuthResponse:
     try:
         data = await service_client.get_auth_token(
             device_id=request.device_id,
-            platform="device",  # Generic platform for login
+            platform=request.platform,
         )
         
         return AuthResponse(
