@@ -79,3 +79,19 @@ class HealthResponse(BaseModel):
     """Health check response"""
     status: str = "ok"
     service: str = "dating-coach-api"
+
+
+# ============ Purchase Schemas ============
+
+class VerifyPurchaseRequest(BaseModel):
+    """Request to verify a purchase"""
+    product_id: str = Field(..., description="Google Play product ID (e.g. credits_10)")
+    purchase_token: str = Field(..., description="Google Play purchase token")
+    platform: str = Field(default="google_play", description="Platform identifier")
+
+
+class VerifyPurchaseResponse(BaseModel):
+    """Response from purchase verification"""
+    success: bool
+    credits_added: int
+    new_balance: int

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, user
+from app.routers import auth, user, purchase
 from app.schemas import HealthResponse
 
 # Configure logging
@@ -45,6 +45,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
+app.include_router(purchase.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])
