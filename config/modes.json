@@ -1,0 +1,181 @@
+{
+  "version": "1.0",
+  "categories": [
+    {"id": "training", "name": "Training", "name_ru": "Тренировки", "order": 1},
+    {"id": "analysis", "name": "Analysis", "name_ru": "Разборы", "order": 2},
+    {"id": "reflection", "name": "Reflection", "name_ru": "Рефлексия", "order": 3},
+    {"id": "free_practice", "name": "Free Practice", "name_ru": "Свободная практика", "order": 4}
+  ],
+  "modes": [
+    {
+      "id": "pre_training",
+      "category": "training",
+      "name": "Pre-Training",
+      "name_ru": "Pre-Training (онбординг)",
+      "description": "Introduction to the training mode with coach",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 1
+    },
+    {
+      "id": "first_contact",
+      "category": "training",
+      "name": "First Contact",
+      "name_ru": "Первый контакт",
+      "description": "Practice writing openers and first messages",
+      "actor_type": "character",
+      "has_difficulty": true,
+      "order": 2
+    },
+    {
+      "id": "keep_conversation",
+      "category": "training",
+      "name": "Keep Conversation",
+      "name_ru": "Поддержание диалога",
+      "description": "Practice maintaining engaging dialogue",
+      "actor_type": "character",
+      "has_difficulty": true,
+      "order": 3
+    },
+    {
+      "id": "losing_interest",
+      "category": "training",
+      "name": "Losing Interest",
+      "name_ru": "Потеря интереса",
+      "description": "Practice re-engaging when interest fades",
+      "actor_type": "character",
+      "has_difficulty": true,
+      "order": 4
+    },
+    {
+      "id": "rejections",
+      "category": "training",
+      "name": "Rejections & Objections",
+      "name_ru": "Отказы и возражения",
+      "description": "Practice handling rejections gracefully",
+      "actor_type": "character",
+      "has_difficulty": true,
+      "order": 5
+    },
+    {
+      "id": "ask_for_date",
+      "category": "training",
+      "name": "Ask for Date",
+      "name_ru": "Переход к встрече",
+      "description": "Practice transitioning to real meeting",
+      "actor_type": "character",
+      "has_difficulty": true,
+      "order": 6
+    },
+    {
+      "id": "intimacy_boundaries",
+      "category": "training",
+      "name": "Intimacy & Boundaries",
+      "name_ru": "Близость и границы",
+      "description": "Practice navigating intimacy and respecting boundaries",
+      "actor_type": "character",
+      "has_difficulty": true,
+      "order": 7
+    },
+    {
+      "id": "after_date",
+      "category": "training",
+      "name": "After Date",
+      "name_ru": "После встречи",
+      "description": "Practice follow-up after meeting",
+      "actor_type": "character",
+      "has_difficulty": true,
+      "order": 8
+    },
+    {
+      "id": "dialog_analysis",
+      "category": "analysis",
+      "name": "Dialog Analysis",
+      "name_ru": "Разбор диалога",
+      "description": "Analyze your conversation with coach",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 1
+    },
+    {
+      "id": "situation_analysis",
+      "category": "analysis",
+      "name": "Situation Analysis",
+      "name_ru": "Разбор ситуации",
+      "description": "Analyze a dating situation with coach",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 2
+    },
+    {
+      "id": "behavior_analysis",
+      "category": "analysis",
+      "name": "Behavior Analysis",
+      "name_ru": "Разбор поведения другого",
+      "description": "Analyze other person's behavior patterns",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 3
+    },
+    {
+      "id": "self_reaction",
+      "category": "analysis",
+      "name": "Self Reaction",
+      "name_ru": "Разбор собственной реакции",
+      "description": "Analyze your own reactions and patterns",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 4
+    },
+    {
+      "id": "after_rejection",
+      "category": "reflection",
+      "name": "After Rejection",
+      "name_ru": "После отказа",
+      "description": "Process and learn from rejection",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 1
+    },
+    {
+      "id": "after_failed_dialog",
+      "category": "reflection",
+      "name": "After Failed Dialog",
+      "name_ru": "После неудачного диалога",
+      "description": "Reflect on unsuccessful conversation",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 2
+    },
+    {
+      "id": "after_date_reflection",
+      "category": "reflection",
+      "name": "After Date Reflection",
+      "name_ru": "После свидания",
+      "description": "Reflect on how the date went",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 3
+    },
+    {
+      "id": "before_big_step",
+      "category": "reflection",
+      "name": "Before Big Step",
+      "name_ru": "Перед сложным шагом",
+      "description": "Prepare mentally for important moment",
+      "actor_type": "coach",
+      "has_difficulty": false,
+      "order": 4
+    },
+    {
+      "id": "open_chat",
+      "category": "free_practice",
+      "name": "Open Chat",
+      "name_ru": "Свободный чат с персонажем",
+      "description": "Free conversation with character, no scenarios",
+      "actor_type": "character",
+      "has_difficulty": false,
+      "order": 1
+    }
+  ]
+}

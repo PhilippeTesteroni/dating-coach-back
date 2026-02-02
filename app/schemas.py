@@ -97,6 +97,26 @@ class VerifyPurchaseResponse(BaseModel):
     new_balance: int
 
 
+# ============ App Settings Schemas ============
+
+class CreditPackage(BaseModel):
+    """Credit package for purchase"""
+    product_id: str
+    credits: int
+    price: float
+    currency: str = "USD"
+
+
+class AppSettingsResponse(BaseModel):
+    """Application settings from Config Service"""
+    app_id: str
+    welcome_bonus: int
+    credit_cost: int
+    referrer_bonus: int
+    referred_bonus: int
+    credit_packages: Optional[List[CreditPackage]] = None
+
+
 # ============ Character Schemas ============
 
 class CharacterType(str, Enum):
