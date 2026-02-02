@@ -32,3 +32,7 @@ async def get_db() -> AsyncSession:
             yield session
         finally:
             await session.close()
+
+
+# Alias for compatibility
+get_session = get_db
