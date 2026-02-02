@@ -49,3 +49,22 @@ async def get_current_user_id(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
+
+
+async def get_current_user_token(
+    authorization: Optional[str] = Header(None)
+) -> str:
+    """
+    Extract raw JWT token from Authorization header.
+    Used for proxying to other services.
+    
+    Raises:
+        401: If token is missing
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header"
+        )
+    
+    return authorization.replace("Bearer ", "")
