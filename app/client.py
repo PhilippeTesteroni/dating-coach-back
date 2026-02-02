@@ -190,5 +190,148 @@ class ServiceClient:
             raise
 
 
+    async def get_characters(self) -> Dict[str, Any]:
+        """
+        Get characters config from Config Service.
+        
+        Returns:
+            {version: str, characters: list}
+        """
+        url = f"{settings.config_service_url}/v1/config/characters"
+        params = {"app_id": settings.app_id}
+        
+        logger.info(f"🚀 [Config] GET {url}")
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                
+                data = response.json()
+                logger.info(f"✅ [Config] characters loaded, count={len(data.get('characters', []))}")
+                return data
+                
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [Config] HTTP {e.response.status_code}: {e.response.text}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"❌ [Config] Request failed: {e}")
+            raise
+
+    async def get_file(self, path: str) -> Dict[str, Any]:
+        """
+        Get any allowed file from Config Service.
+        
+        Args:
+            path: File path within app folder (e.g., "templates/character_system.txt")
+            
+        Returns:
+            {path: str, content_type: str, content: str|dict}
+        """
+        url = f"{settings.config_service_url}/v1/config/file"
+        params = {"app_id": settings.app_id, "path": path}
+        
+        logger.info(f"🚀 [Config] GET {url} path={path}")
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                
+                data = response.json()
+                logger.info(f"✅ [Config] file loaded: {path}")
+                return data
+                
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [Config] HTTP {e.response.status_code}: {e.response.text}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"❌ [Config] Request failed: {e}")
+            raise
+
+    async def get_modes(self) -> Dict[str, Any]:
+        """
+        Get modes config from Config Service.
+        
+        Returns:
+            {version: str, categories: list, modes: list}
+        """
+        data = await self.get_file("modes.json")
+        return data.get("content", {})
+
+    async def get_template(self, name: str) -> str:
+        """
+        Get template file content.
+        
+        Args:
+            name: Template name without extension (e.g., "character_system")
+            
+        Returns:
+            Template content as string
+        """
+        data = await self.get_file(f"templates/{name}.txt")
+        return data.get("content", "")
+
+    async def get_scenario(self, mode_id: str) -> Dict[str, Any]:
+        """
+        Get scenario config for a mode.
+        
+        Args:
+            mode_id: Mode identifier (e.g., "open_chat")
+            
+        Returns:
+            {mode_id: str, scenario_prompt: str, difficulty_levels: list|null}
+        """
+        data = await self.get_file(f"scenarios/{mode_id}.json")
+        return data.get("content", {})
+
+    async def call_ai(
+        self,
+        messages: list,
+        system_prompt: str,
+        max_tokens: int = 1024,
+        temperature: float = 0.8
+    ) -> str:
+        """
+        Call AI Gateway for chat completion.
+        
+        Args:
+            messages: List of {role, content} dicts
+            system_prompt: System prompt for AI
+            max_tokens: Max response tokens
+            temperature: Sampling temperature
+            
+        Returns:
+            AI response text
+        """
+        url = f"{settings.ai_gateway_url}/v1/ai/chat"
+        payload = {
+            "app_id": settings.app_id,
+            "messages": messages,
+            "system_prompt": system_prompt,
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        logger.info(f"🚀 [AI Gateway] POST {url}")
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.ai_timeout) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                
+                data = response.json()
+                content = data.get("content", "")
+                logger.info(f"✅ [AI Gateway] response received, len={len(content)}")
+                return content
+                
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [AI Gateway] HTTP {e.response.status_code}: {e.response.text}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"❌ [AI Gateway] Request failed: {e}")
+            raise
+
+
 # Global instance
 service_client = ServiceClient()

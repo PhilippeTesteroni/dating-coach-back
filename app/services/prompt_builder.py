@@ -1,0 +1,132 @@
+import re
+import random
+import logging
+from typing import Dict, Any, Optional
+
+from app.client import service_client
+
+logger = logging.getLogger(__name__)
+
+
+class PromptBuilder:
+    """
+    Builds system prompts for conversations.
+    
+    Character modes: template + character.base_prompt + scenario + difficulty
+    Coach modes: hitch.base_prompt + scenario
+    """
+    
+    @staticmethod
+    def calculate_orientation(user_gender: str, user_preference: str) -> str:
+        """
+        Calculate model's sexual orientation based on user preferences.
+        
+        Logic:
+        - user=male + pref=female → heterosexual (model is female attracted to males)
+        - user=female + pref=male → heterosexual (model is male attracted to females)
+        - user=male + pref=male → homosexual
+        - user=female + pref=female → homosexual
+        - pref=all → bisexual
+        """
+        if user_preference == "all":
+            return "bisexual"
+        
+        if user_gender == user_preference:
+            return "homosexual"
+        
+        return "heterosexual"
+    
+    @staticmethod
+    def generate_model_age(age_min: int, age_max: int) -> int:
+        """Generate random age within user's preferred range."""
+        return random.randint(age_min, age_max)
+    
+    @staticmethod
+    def replace_placeholders(template: str, variables: Dict[str, Any]) -> str:
+        """Replace {{variable}} placeholders in template."""
+        def replacer(match):
+            var_name = match.group(1)
+            value = variables.get(var_name, "")
+            return str(value) if value else ""
+        
+        return re.sub(r'\{\{(\w+)\}\}', replacer, template)
+
+    @classmethod
+    async def build_character_prompt(
+        cls,
+        character: Dict[str, Any],
+        scenario: Dict[str, Any],
+        user_gender: str,
+        user_preference: str,
+        model_age: int,
+        language: str = "ru",
+        difficulty_level: Optional[int] = None
+    ) -> str:
+        """
+        Build system prompt for character mode.
+        
+        Components:
+        1. Base template (character_system.txt)
+        2. Character's base_prompt
+        3. Scenario prompt
+        4. Difficulty modifier (if applicable)
+        """
+        # Load template
+        template = await service_client.get_template("character_system")
+        
+        # Calculate orientation
+        model_orientation = cls.calculate_orientation(user_gender, user_preference)
+        
+        # Get difficulty prompt if needed
+        difficulty_prompt = ""
+        if difficulty_level and scenario.get("difficulty_levels"):
+            for level in scenario["difficulty_levels"]:
+                if level["level"] == difficulty_level:
+                    difficulty_prompt = level.get("modifier_prompt", "")
+                    break
+        
+        # Build training scenario text
+        training_scenario = scenario.get("scenario_prompt", "")
+        if difficulty_prompt:
+            training_scenario += f"\n\n{difficulty_prompt}"
+        
+        # Prepare variables
+        variables = {
+            "user_gender": user_gender,
+            "user_preference_gender": user_preference,
+            "character_prompt": character.get("base_prompt", ""),
+            "model_age": model_age,
+            "model_orientation": model_orientation,
+            "language": language,
+            "training_scenario": training_scenario
+        }
+        
+        # Build final prompt
+        system_prompt = cls.replace_placeholders(template, variables)
+        
+        logger.info(f"✅ Built character prompt: char={character.get('id')}, mode={scenario.get('mode_id')}")
+        
+        return system_prompt
+
+    @classmethod
+    async def build_coach_prompt(
+        cls,
+        coach_character: Dict[str, Any],
+        scenario: Dict[str, Any],
+        language: str = "ru"
+    ) -> str:
+        """
+        Build system prompt for coach mode.
+        
+        Components:
+        1. Hitch's base_prompt
+        2. Scenario prompt
+        """
+        base_prompt = coach_character.get("base_prompt", "")
+        scenario_prompt = scenario.get("scenario_prompt", "")
+        
+        system_prompt = f"{base_prompt}\n\n{scenario_prompt}"
+        
+        logger.info(f"✅ Built coach prompt: mode={scenario.get('mode_id')}")
+        
+        return system_prompt

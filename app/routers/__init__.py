@@ -1,3 +1,3 @@
-from app.routers import auth, user
+from app.routers import auth, user, purchase, characters, modes, conversations
 
-__all__ = ["auth", "user"]
+__all__ = ["auth", "user", "purchase", "characters", "modes", "conversations"]

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -95,3 +95,83 @@ class VerifyPurchaseResponse(BaseModel):
     success: bool
     credits_added: int
     new_balance: int
+
+
+# ============ Character Schemas ============
+
+class CharacterType(str, Enum):
+    coach = "coach"
+    character = "character"
+
+
+class Character(BaseModel):
+    """Character data for selection screen"""
+    id: str
+    type: CharacterType
+    name: str
+    description: str
+    gender: Optional[str] = None
+    avatar_url: str
+    thumb_url: str
+
+
+class CharactersResponse(BaseModel):
+    """Response with filtered characters list"""
+    characters: List[Character]
+
+
+# ============ Conversation Schemas ============
+
+class ActorType(str, Enum):
+    character = "character"
+    coach = "coach"
+
+
+class MessageRole(str, Enum):
+    user = "user"
+    assistant = "assistant"
+
+
+class CreateConversationRequest(BaseModel):
+    """Request to create a new conversation"""
+    submode_id: str = Field(..., description="Submode identifier (e.g., open_chat, first_contact)")
+    character_id: Optional[str] = Field(None, description="Character ID (required for character modes)")
+    language: str = Field(default="ru", max_length=10)
+
+
+class ConversationResponse(BaseModel):
+    """Conversation data"""
+    id: str
+    mode_id: str  # category: training, analysis, reflection, free_practice
+    submode_id: str  # specific mode: open_chat, first_contact, etc.
+    actor_type: ActorType
+    character_id: Optional[str] = None
+    difficulty_level: Optional[int] = None
+    model_age: Optional[int] = None
+    language: str
+    is_active: bool
+    created_at: str
+
+
+class MessageResponse(BaseModel):
+    """Single message"""
+    id: str
+    role: MessageRole
+    content: str
+    created_at: str
+
+
+class MessagesResponse(BaseModel):
+    """List of messages"""
+    messages: List[MessageResponse]
+
+
+class SendMessageRequest(BaseModel):
+    """Request to send a message"""
+    content: str = Field(..., min_length=1, max_length=4000)
+
+
+class SendMessageResponse(BaseModel):
+    """Response after sending message"""
+    user_message: MessageResponse
+    assistant_message: MessageResponse
