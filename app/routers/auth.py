@@ -12,8 +12,8 @@ from app.schemas import (
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
-# Welcome bonus for new users (TODO: move to Config Service)
-WELCOME_BONUS = 30
+# Fallback welcome bonus if Config Service unavailable
+DEFAULT_WELCOME_BONUS = 30
 
 
 @router.post("/register", response_model=AuthResponse)
@@ -28,8 +28,9 @@ async def register(request: RegisterRequest) -> AuthResponse:
     1. App sends device_id + platform
     2. dating-coach-api proxies to Identity Service
     3. Identity resolves/creates user, returns JWT tokens
-    4. Check/create balance with welcome bonus for new users
-    5. App stores tokens for future requests
+    4. Get welcome bonus from Config Service
+    5. Check/create balance with welcome bonus for new users
+    6. App stores tokens for future requests
     """
     try:
         # Step 1: Get auth tokens from Identity
@@ -40,12 +41,21 @@ async def register(request: RegisterRequest) -> AuthResponse:
         
         token = data["access_token"]
         
-        # Step 2: Initialize balance with welcome bonus
+        # Step 2: Get welcome bonus from Config Service
+        welcome_bonus = DEFAULT_WELCOME_BONUS
+        try:
+            app_settings = await service_client.get_app_settings()
+            welcome_bonus = app_settings.get("welcome_bonus", DEFAULT_WELCOME_BONUS)
+            logger.info(f"✅ [Register] Welcome bonus from config: {welcome_bonus}")
+        except Exception as e:
+            logger.warning(f"⚠️ [Register] Config unavailable, using default: {welcome_bonus}")
+        
+        # Step 3: Initialize balance with welcome bonus
         # Payment Service will create balance only if user is new
         try:
             balance_data = await service_client.check_balance(
                 jwt_token=token,
-                welcome_bonus=WELCOME_BONUS
+                welcome_bonus=welcome_bonus
             )
             logger.info(f"✅ [Register] Balance initialized: {balance_data.get('balance')} credits")
         except Exception as e:
