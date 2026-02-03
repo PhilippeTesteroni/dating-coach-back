@@ -118,7 +118,7 @@ class Conversation(Base):
     )
     
     # Relationships
-    messages = relationship("Message", back_populates="conversation", order_by="Message.created_at")
+    messages = relationship("Message", back_populates="conversation", order_by="Message.created_at", passive_deletes=True)
 
 
 class Message(Base):
