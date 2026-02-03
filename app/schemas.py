@@ -197,3 +197,22 @@ class SendMessageResponse(BaseModel):
     user_message: MessageResponse
     assistant_message: MessageResponse
     new_balance: Optional[int] = None
+
+
+# ============ Conversation List Schemas ============
+
+class ConversationListItem(BaseModel):
+    """Conversation preview for history list"""
+    id: str
+    submode_id: str
+    actor_type: ActorType
+    character_id: Optional[str] = None
+    created_at: str
+    updated_at: str
+    last_message: Optional[str] = None
+    message_count: int = 0
+
+
+class ConversationsListResponse(BaseModel):
+    """List of conversations for history screen"""
+    conversations: List[ConversationListItem]

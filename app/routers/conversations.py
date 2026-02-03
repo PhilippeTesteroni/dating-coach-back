@@ -3,7 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy import select
+from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +13,8 @@ from app.models import Conversation, Message, UserProfile, ActorType, MessageRol
 from app.schemas import (
     CreateConversationRequest, ConversationResponse,
     MessageResponse, MessagesResponse,
-    SendMessageRequest, SendMessageResponse
+    SendMessageRequest, SendMessageResponse,
+    ConversationListItem, ConversationsListResponse
 )
 from app.client import service_client
 from app.services.prompt_builder import PromptBuilder
@@ -21,6 +22,71 @@ from app.services.prompt_builder import PromptBuilder
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
+
+
+@router.get("", response_model=ConversationsListResponse)
+async def list_conversations(
+    submode_id: str,
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+) -> ConversationsListResponse:
+    """
+    List conversations for a specific submode.
+    
+    Returns conversations sorted by updated_at DESC with last message preview.
+    """
+    # Subquery: message count per conversation
+    msg_count_subq = (
+        select(func.count(Message.id))
+        .where(Message.conversation_id == Conversation.id)
+        .correlate(Conversation)
+        .scalar_subquery()
+        .label("message_count")
+    )
+
+    # Subquery: last message content per conversation
+    last_msg_subq = (
+        select(Message.content)
+        .where(Message.conversation_id == Conversation.id)
+        .correlate(Conversation)
+        .order_by(desc(Message.created_at))
+        .limit(1)
+        .scalar_subquery()
+        .label("last_message")
+    )
+
+    # Main query
+    result = await session.execute(
+        select(
+            Conversation,
+            last_msg_subq,
+            msg_count_subq,
+        )
+        .where(
+            Conversation.user_id == user_id,
+            Conversation.submode_id == submode_id,
+        )
+        .order_by(desc(Conversation.updated_at))
+        .limit(50)
+    )
+
+    rows = result.all()
+
+    conversations = [
+        ConversationListItem(
+            id=str(conv.id),
+            submode_id=conv.submode_id,
+            actor_type=conv.actor_type,
+            character_id=conv.character_id,
+            created_at=conv.created_at.isoformat(),
+            updated_at=conv.updated_at.isoformat(),
+            last_message=last_message,
+            message_count=message_count or 0,
+        )
+        for conv, last_message, message_count in rows
+    ]
+
+    return ConversationsListResponse(conversations=conversations)
 
 
 @router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
