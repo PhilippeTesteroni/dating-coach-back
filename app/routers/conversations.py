@@ -3,7 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -87,6 +87,41 @@ async def list_conversations(
     ]
 
     return ConversationsListResponse(conversations=conversations)
+
+
+@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    """Delete a single conversation. Messages cascade-deleted via FK."""
+    conversation = await session.get(Conversation, conversation_id)
+
+    if not conversation or conversation.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    await session.delete(conversation)
+    await session.commit()
+
+    logger.info(f"🗑️ Deleted conversation {conversation_id} for user {user_id}")
+
+
+@router.delete("")
+async def delete_all_conversations(
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+):
+    """Delete all conversations for user. Messages cascade-deleted via FK."""
+    result = await session.execute(
+        delete(Conversation).where(Conversation.user_id == user_id)
+    )
+    await session.commit()
+
+    count = result.rowcount
+    logger.info(f"🗑️ Deleted {count} conversations for user {user_id}")
+
+    return {"deleted_count": count}
 
 
 @router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
