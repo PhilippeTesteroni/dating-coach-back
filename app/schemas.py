@@ -171,6 +171,7 @@ class ConversationResponse(BaseModel):
     language: str
     is_active: bool
     created_at: str
+    first_message: Optional['MessageResponse'] = None
 
 
 class MessageResponse(BaseModel):

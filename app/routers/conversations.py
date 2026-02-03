@@ -94,6 +94,39 @@ async def create_conversation(
     
     logger.info(f"✅ Created conversation {conversation.id} for user {user_id}")
     
+    # Generate greeting if scenario requires it
+    first_message_response = None
+    scenario = await service_client.get_scenario(request.submode_id)
+    
+    if scenario.get("greeting"):
+        try:
+            system_prompt = await _build_system_prompt(conversation, profile)
+            
+            ai_response = await service_client.call_ai(
+                messages=[],
+                system_prompt=system_prompt
+            )
+            
+            greeting_message = Message(
+                conversation_id=conversation.id,
+                role=MessageRole.assistant,
+                content=ai_response
+            )
+            session.add(greeting_message)
+            await session.commit()
+            await session.refresh(greeting_message)
+            
+            first_message_response = MessageResponse(
+                id=str(greeting_message.id),
+                role=greeting_message.role,
+                content=greeting_message.content,
+                created_at=greeting_message.created_at.isoformat()
+            )
+            
+            logger.info(f"✅ Generated greeting for conversation {conversation.id}")
+        except Exception as e:
+            logger.error(f"⚠️ Greeting generation failed (non-blocking): {e}")
+    
     return ConversationResponse(
         id=str(conversation.id),
         mode_id=conversation.mode_id,
@@ -104,7 +137,8 @@ async def create_conversation(
         model_age=conversation.model_age,
         language=conversation.language,
         is_active=conversation.is_active,
-        created_at=conversation.created_at.isoformat()
+        created_at=conversation.created_at.isoformat(),
+        first_message=first_message_response
     )
 
 
