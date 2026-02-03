@@ -195,3 +195,4 @@ class SendMessageResponse(BaseModel):
     """Response after sending message"""
     user_message: MessageResponse
     assistant_message: MessageResponse
+    new_balance: Optional[int] = None

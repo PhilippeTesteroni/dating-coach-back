@@ -120,6 +120,32 @@ class ServiceClient:
             logger.error(f"❌ [Payment] Request failed: {e}")
             raise
 
+    async def deduct_credits(
+        self,
+        jwt_token: str,
+        amount: int,
+        reason: str = "chat_message"
+    ) -> Dict[str, Any]:
+        """
+        Deduct credits via Payment Service.
+        
+        Returns:
+            {success: bool, new_balance: int} or {success: false, error: str}
+        """
+        url = f"{settings.payment_service_url}/v1/payment/deduct"
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+        payload = {"amount": amount, "reason": reason}
+        
+        logger.info(f"🚀 [Payment] POST {url} amount={amount}")
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            data = response.json()
+            logger.info(f"✅ [Payment] deduct success={data.get('success')}, new_balance={data.get('new_balance')}")
+            return data
+
     async def get_app_settings(self) -> Dict[str, Any]:
         """Get app settings from Config Service"""
         url = f"{settings.config_service_url}/v1/config/app-settings"

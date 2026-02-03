@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
-from app.dependencies import get_current_user_id
+from app.dependencies import get_current_user_id, get_current_user_token
 from app.models import Conversation, Message, UserProfile, ActorType, MessageRole
 from app.schemas import (
     CreateConversationRequest, ConversationResponse,
@@ -149,6 +149,7 @@ async def send_message(
     conversation_id: UUID,
     request: SendMessageRequest,
     user_id: UUID = Depends(get_current_user_id),
+    token: str = Depends(get_current_user_token),
     session: AsyncSession = Depends(get_session)
 ) -> SendMessageResponse:
     """
@@ -216,6 +217,21 @@ async def send_message(
     await session.refresh(user_message)
     await session.refresh(assistant_message)
     
+    # Deduct credits after successful AI response
+    new_balance = None
+    try:
+        deduct_result = await service_client.deduct_credits(
+            jwt_token=token,
+            amount=1,
+            reason=f"chat:{conversation.submode_id}"
+        )
+        if deduct_result.get("success"):
+            new_balance = deduct_result.get("new_balance")
+        else:
+            logger.warning(f"⚠️ Deduct failed: {deduct_result.get('error')}")
+    except Exception as e:
+        logger.error(f"❌ Deduct error (non-blocking): {e}")
+    
     logger.info(f"✅ Message exchange in conversation {conversation_id}")
     
     return SendMessageResponse(
@@ -230,7 +246,8 @@ async def send_message(
             role=assistant_message.role,
             content=assistant_message.content,
             created_at=assistant_message.created_at.isoformat()
-        )
+        ),
+        new_balance=new_balance
     )
 
 
