@@ -26,7 +26,11 @@ logger = logging.getLogger(__name__)
 async def get_balance(
     authorization: Optional[str] = Header(None)
 ) -> BalanceResponse:
-    """Get user's credit balance."""
+    """
+    Get user's credit balance.
+    
+    If user has no balance yet, auto-creates with welcome_bonus from Config Service.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -36,7 +40,14 @@ async def get_balance(
     token = authorization.replace("Bearer ", "")
     
     try:
-        data = await service_client.check_balance(jwt_token=token)
+        # Get welcome_bonus from Config Service for new user auto-creation
+        settings_data = await service_client.get_app_settings()
+        welcome_bonus = settings_data.get("welcome_bonus", 10)
+        
+        data = await service_client.check_balance(
+            jwt_token=token,
+            welcome_bonus=welcome_bonus
+        )
         return BalanceResponse(balance=data.get("balance", 0))
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail="Failed to get balance")
