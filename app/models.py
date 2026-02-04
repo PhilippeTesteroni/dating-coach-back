@@ -68,6 +68,9 @@ class UserProfile(Base):
         server_default=text("NOW()")
     )
 
+    # Relationships
+    conversations = relationship("Conversation", back_populates="user_profile", passive_deletes=True)
+
 
 class Conversation(Base):
     """
@@ -85,7 +88,7 @@ class Conversation(Base):
     
     user_id = Column(
         PG_UUID(as_uuid=True),
-        ForeignKey("dc_user_profiles.user_id"),
+        ForeignKey("dc_user_profiles.user_id", ondelete="CASCADE"),
         nullable=False
     )
     
@@ -118,6 +121,7 @@ class Conversation(Base):
     )
     
     # Relationships
+    user_profile = relationship("UserProfile", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation", order_by="Message.created_at", passive_deletes=True)
 
 

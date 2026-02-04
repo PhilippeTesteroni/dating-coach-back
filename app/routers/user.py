@@ -133,6 +133,9 @@ async def delete_user_data(
     """
     Delete user data from Dating Coach.
     Called by Identity Service during cascade deletion.
+    
+    Cascade chain (all via DB ON DELETE CASCADE):
+      dc_user_profiles → dc_conversations → dc_messages
     """
     result = await db.execute(
         select(UserProfile).where(UserProfile.user_id == user_id)
@@ -142,8 +145,6 @@ async def delete_user_data(
     if profile:
         await db.delete(profile)
         await db.commit()
-        logger.info(f"✅ Deleted profile for user {user_id}")
-    
-    # TODO: Delete chat history when implemented
+        logger.info(f"✅ Deleted user {user_id}: profile + conversations + messages (cascade)")
     
     return {"success": True, "message": "User data deleted"}
