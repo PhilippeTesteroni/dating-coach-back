@@ -9,7 +9,7 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import Base
-from app.models import UserProfile  # noqa: F401
+from app.models import UserProfile, Conversation, Message, Subscription, MessageCounter  # noqa: F401
 from app.config import settings
 
 # Alembic Config object

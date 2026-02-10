@@ -110,11 +110,15 @@ class CreditPackage(BaseModel):
 class AppSettingsResponse(BaseModel):
     """Application settings from Config Service"""
     app_id: str
-    welcome_bonus: int
-    credit_cost: int
-    referrer_bonus: int
-    referred_bonus: int
+    # Credit-based (legacy, kept for backward compatibility)
+    welcome_bonus: Optional[int] = None
+    credit_cost: Optional[int] = None
+    referrer_bonus: int = 0
+    referred_bonus: int = 0
     credit_packages: Optional[List[CreditPackage]] = None
+    # Subscription-based (new)
+    free_message_limit: Optional[int] = None
+    subscription_products: Optional[list] = None
 
 
 # ============ Character Schemas ============
@@ -216,3 +220,30 @@ class ConversationListItem(BaseModel):
 class ConversationsListResponse(BaseModel):
     """List of conversations for history screen"""
     conversations: List[ConversationListItem]
+
+
+# ============ Subscription Schemas ============
+
+class SubscriptionStatusEnum(str, Enum):
+    none = "none"
+    active = "active"
+    expired = "expired"
+    cancelled = "cancelled"
+
+
+class SubscriptionStatusResponse(BaseModel):
+    """Current subscription and free-tier status"""
+    subscription_status: SubscriptionStatusEnum = SubscriptionStatusEnum.none
+    is_subscribed: bool = False
+    messages_used: int = 0
+    free_message_limit: int = 10
+    messages_remaining: Optional[int] = None  # None = unlimited (subscribed)
+    expires_at: Optional[str] = None
+    product_id: Optional[str] = None
+
+
+class VerifySubscriptionRequest(BaseModel):
+    """Request to verify a subscription purchase"""
+    product_id: str = Field(..., description="Subscription product ID (e.g. monthly_premium)")
+    purchase_token: str = Field(..., description="Store purchase token")
+    platform: str = Field(default="google_play", description="google_play or app_store")

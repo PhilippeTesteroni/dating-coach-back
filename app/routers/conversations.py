@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
@@ -8,8 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
-from app.dependencies import get_current_user_id, get_current_user_token
-from app.models import Conversation, Message, UserProfile, ActorType, MessageRole
+from app.dependencies import get_current_user_id
+from app.models import (
+    Conversation, Message, UserProfile, ActorType, MessageRole,
+    Subscription, MessageCounter, SubscriptionStatus as SubStatus,
+)
 from app.schemas import (
     CreateConversationRequest, ConversationResponse,
     MessageResponse, MessagesResponse,
@@ -22,6 +26,18 @@ from app.services.prompt_builder import PromptBuilder
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
+
+# Default free-tier message limit — overridden by S3 app-settings
+DEFAULT_FREE_MESSAGE_LIMIT = 10
+
+
+async def _get_free_message_limit() -> int:
+    """Get free_message_limit from Config Service, fallback to default."""
+    try:
+        settings_data = await service_client.get_app_settings()
+        return settings_data.get("free_message_limit", DEFAULT_FREE_MESSAGE_LIMIT)
+    except Exception:
+        return DEFAULT_FREE_MESSAGE_LIMIT
 
 
 @router.get("", response_model=ConversationsListResponse)
@@ -203,8 +219,17 @@ async def create_conversation(
         try:
             system_prompt = await _build_system_prompt(conversation, profile)
             
+            greeting_instruction = (
+                "[SYSTEM: Начни разговор первым. "
+                "Каждый раз придумывай новый, непохожий на предыдущие способ начать общение. "
+                "Это может быть реакция на что-то вокруг, вопрос, шутка, провокация, комплимент, "
+                "наблюдение, история — что угодно, что соответствует твоему характеру. "
+                "НЕ используй банальные приветствия типа 'привет, как дела'. "
+                "Будь креативным и непредсказуемым. Одно-два предложения максимум.]"
+            )
+            
             ai_response = await service_client.call_ai(
-                messages=[],
+                messages=[{"role": "user", "content": greeting_instruction}],
                 system_prompt=system_prompt
             )
             
@@ -284,15 +309,15 @@ async def send_message(
     conversation_id: UUID,
     request: SendMessageRequest,
     user_id: UUID = Depends(get_current_user_id),
-    token: str = Depends(get_current_user_token),
     session: AsyncSession = Depends(get_session)
 ) -> SendMessageResponse:
     """
     Send a message and get AI response.
     
-    1. Saves user message
-    2. Builds system prompt
-    3. Calls AI Gateway
+    1. Checks subscription / free-tier limit
+    2. Saves user message
+    3. Builds system prompt
+    4. Calls AI Gateway
     4. Saves assistant message
     """
     # Get conversation with user profile
@@ -303,6 +328,28 @@ async def send_message(
     
     if not conversation.is_active:
         raise HTTPException(status_code=400, detail="Conversation is not active")
+    
+    # ── Subscription / free-tier check ──
+    sub = await session.get(Subscription, user_id)
+    is_subscribed = (
+        sub is not None
+        and sub.status == SubStatus.active
+        and (sub.expires_at is None or sub.expires_at > datetime.utcnow())
+    )
+
+    if not is_subscribed:
+        free_limit = await _get_free_message_limit()
+        counter = await session.get(MessageCounter, user_id)
+        messages_used = counter.message_count if counter else 0
+        if messages_used >= free_limit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "subscription_required",
+                    "messages_used": messages_used,
+                    "limit": free_limit,
+                },
+            )
     
     # Get user profile
     profile = await session.get(UserProfile, user_id)
@@ -347,28 +394,23 @@ async def send_message(
         content=ai_response
     )
     session.add(assistant_message)
+    
+    # ── Increment message counter (free-tier tracking) ──
+    if not is_subscribed:
+        counter = await session.get(MessageCounter, user_id)
+        if not counter:
+            counter = MessageCounter(user_id=user_id, message_count=0)
+            session.add(counter)
+        counter.message_count += 1
+        counter.updated_at = datetime.utcnow()
+
     await session.commit()
     
     await session.refresh(user_message)
     await session.refresh(assistant_message)
-    
-    # Deduct credits after successful AI response
-    new_balance = None
-    try:
-        deduct_result = await service_client.deduct_credits(
-            jwt_token=token,
-            amount=1,
-            reason=f"chat:{conversation.submode_id}"
-        )
-        if deduct_result.get("success"):
-            new_balance = deduct_result.get("new_balance")
-        else:
-            logger.warning(f"⚠️ Deduct failed: {deduct_result.get('error')}")
-    except Exception as e:
-        logger.error(f"❌ Deduct error (non-blocking): {e}")
-    
+
     logger.info(f"✅ Message exchange in conversation {conversation_id}")
-    
+
     return SendMessageResponse(
         user_message=MessageResponse(
             id=str(user_message.id),
@@ -382,7 +424,7 @@ async def send_message(
             content=assistant_message.content,
             created_at=assistant_message.created_at.isoformat()
         ),
-        new_balance=new_balance
+        new_balance=None,
     )
 
 
