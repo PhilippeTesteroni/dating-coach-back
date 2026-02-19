@@ -1,20 +1,16 @@
 """
 Subscription router for Dating Coach.
 
-Handles subscription purchase verification.
+Proxies subscription verification to Payment Service.
 Status check lives in user.py: GET /v1/user/subscription.
 """
 import logging
-from datetime import datetime
-from uuid import UUID
+from fastapi import APIRouter, HTTPException, Header, status
+from typing import Optional
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.database import get_session
-from app.dependencies import get_current_user_id
-from app.models import Subscription, SubscriptionStatus as SubStatus
+from app.client import service_client
 from app.schemas import VerifySubscriptionRequest
+import httpx
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/subscription", tags=["subscription"])
@@ -23,36 +19,36 @@ router = APIRouter(prefix="/v1/subscription", tags=["subscription"])
 @router.post("/verify")
 async def verify_subscription(
     request: VerifySubscriptionRequest,
-    user_id: UUID = Depends(get_current_user_id),
-    session: AsyncSession = Depends(get_session),
+    authorization: Optional[str] = Header(None),
 ):
     """
-    Verify a subscription purchase from Google Play / App Store.
-
-    For now: trust the client and activate subscription.
-    TODO: Server-side receipt validation via Google Play Developer API / App Store Server API.
+    Verify a subscription purchase.
+    Proxies to Payment Service: POST /v1/payment/verify-subscription.
     """
-    # Get or create subscription record
-    sub = await session.get(Subscription, user_id)
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authorization header",
+        )
 
-    if not sub:
-        sub = Subscription(user_id=user_id)
-        session.add(sub)
+    token = authorization.replace("Bearer ", "")
 
-    sub.status = SubStatus.active
-    sub.platform = request.platform
-    sub.product_id = request.product_id
-    sub.purchase_token = request.purchase_token
-    sub.expires_at = None  # TODO: set from receipt validation
-    sub.updated_at = datetime.utcnow()
-
-    await session.commit()
-    await session.refresh(sub)
-
-    logger.info(f"✅ Subscription activated for user {user_id}, product={request.product_id}")
-
-    return {
-        "success": True,
-        "subscription_status": "active",
-        "product_id": request.product_id,
-    }
+    try:
+        data = await service_client.verify_subscription(
+            jwt_token=token,
+            product_id=request.product_id,
+            purchase_token=request.purchase_token,
+            platform=request.platform,
+            base_plan_id=getattr(request, "base_plan_id", None),
+        )
+        return data
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=e.response.json().get("detail", "Verification failed"),
+        )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment service unavailable",
+        )

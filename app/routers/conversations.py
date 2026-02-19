@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, Header, status
 from sqlalchemy import select, func, desc, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,7 +12,7 @@ from app.database import get_session
 from app.dependencies import get_current_user_id
 from app.models import (
     Conversation, Message, UserProfile, ActorType, MessageRole,
-    Subscription, MessageCounter, SubscriptionStatus as SubStatus,
+    MessageCounter,
 )
 from app.schemas import (
     CreateConversationRequest, ConversationResponse,
@@ -22,7 +22,7 @@ from app.schemas import (
 )
 from app.client import service_client
 from app.services.prompt_builder import PromptBuilder
-from app.services.subscription_helpers import get_free_message_limit
+from app.services.subscription_helpers import get_free_message_limit, check_subscription_via_payment
 
 logger = logging.getLogger(__name__)
 
@@ -298,6 +298,7 @@ async def send_message(
     conversation_id: UUID,
     request: SendMessageRequest,
     user_id: UUID = Depends(get_current_user_id),
+    authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ) -> SendMessageResponse:
     """
@@ -319,12 +320,8 @@ async def send_message(
         raise HTTPException(status_code=400, detail="Conversation is not active")
     
     # ── Subscription / free-tier check ──
-    sub = await session.get(Subscription, user_id)
-    is_subscribed = (
-        sub is not None
-        and sub.status == SubStatus.active
-        and (sub.expires_at is None or sub.expires_at > datetime.utcnow())
-    )
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    is_subscribed = await check_subscription_via_payment(token)
 
     if not is_subscribed:
         free_limit = await get_free_message_limit()

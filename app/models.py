@@ -31,13 +31,6 @@ class MessageRole(str, enum.Enum):
     assistant = "assistant"
 
 
-class SubscriptionStatus(str, enum.Enum):
-    none = "none"
-    active = "active"
-    expired = "expired"
-    cancelled = "cancelled"
-
-
 class UserProfile(Base):
     """
     User profile for Dating Coach app.
@@ -164,46 +157,6 @@ class Message(Base):
     
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
-
-
-class Subscription(Base):
-    """
-    User subscription for Dating Coach app.
-
-    Table: dc_subscriptions
-    Tracks subscription status. Credits system remains untouched —
-    this is a parallel monetization path.
-    """
-    __tablename__ = "dc_subscriptions"
-
-    user_id = Column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("dc_user_profiles.user_id", ondelete="CASCADE"),
-        primary_key=True,
-        nullable=False
-    )
-
-    status = Column(
-        Enum(SubscriptionStatus),
-        default=SubscriptionStatus.none,
-        nullable=False
-    )
-    platform = Column(String(20), nullable=True)  # google_play, app_store
-    product_id = Column(String(100), nullable=True)  # monthly_premium, yearly_premium
-    purchase_token = Column(Text, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
-
-    created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        server_default=text("NOW()")
-    )
-    updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        server_default=text("NOW()")
-    )
 
 
 class MessageCounter(Base):

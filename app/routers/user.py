@@ -27,13 +27,15 @@ logger = logging.getLogger(__name__)
 @router.get("/subscription", response_model=SubscriptionStatusResponse)
 async def get_subscription_status(
     user_id: UUID = Depends(get_current_user_id),
+    authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> SubscriptionStatusResponse:
     """
     Get subscription status and free-tier usage.
-    Single source of truth for subscription state.
+    Combines Payment Service (subscription) + local DB (message counter).
     """
-    return await build_subscription_status(user_id, db)
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    return await build_subscription_status(user_id, token, db)
 
 
 @router.get("/balance", response_model=BalanceResponse)

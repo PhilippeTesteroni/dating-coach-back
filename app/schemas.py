@@ -244,6 +244,7 @@ class SubscriptionStatusResponse(BaseModel):
 
 class VerifySubscriptionRequest(BaseModel):
     """Request to verify a subscription purchase"""
-    product_id: str = Field(..., description="Subscription product ID (e.g. monthly_premium)")
+    product_id: str = Field(..., description="Subscription product ID (e.g. week_subscription)")
     purchase_token: str = Field(..., description="Store purchase token")
     platform: str = Field(default="google_play", description="google_play or app_store")
+    base_plan_id: Optional[str] = Field(None, description="Base plan ID (e.g. 01, 02)")

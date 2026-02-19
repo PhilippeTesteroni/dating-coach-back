@@ -215,6 +215,77 @@ class ServiceClient:
             logger.error(f"❌ [Payment] Request failed: {e}")
             raise
 
+    async def verify_subscription(
+        self,
+        jwt_token: str,
+        product_id: str,
+        purchase_token: str,
+        platform: str = "google_play",
+        base_plan_id: str = None,
+    ) -> Dict[str, Any]:
+        """
+        Verify subscription purchase via Payment Service.
+
+        Returns:
+            {success, subscription_status, product_id, expires_at}
+        """
+        url = f"{settings.payment_service_url}/v1/payment/verify-subscription"
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+        payload = {
+            "product_id": product_id,
+            "purchase_token": purchase_token,
+            "platform": platform,
+            "app_id": settings.app_id,
+        }
+        if base_plan_id:
+            payload["base_plan_id"] = base_plan_id
+
+        logger.info(f"🚀 [Payment] POST {url} product={product_id}")
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                logger.info(f"✅ [Payment] subscription verified: {data.get('subscription_status')}")
+                return data
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [Payment] HTTP {e.response.status_code}: {e.response.text}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"❌ [Payment] Request failed: {e}")
+            raise
+
+    async def get_subscription_status(
+        self,
+        jwt_token: str,
+    ) -> Dict[str, Any]:
+        """
+        Get subscription status from Payment Service.
+
+        Returns:
+            {is_subscribed, subscription_status, product_id, base_plan_id,
+             platform, expires_at, auto_renewing}
+        """
+        url = f"{settings.payment_service_url}/v1/payment/subscription-status"
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+        params = {"app_id": settings.app_id}
+
+        logger.info(f"🚀 [Payment] GET {url}")
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                logger.info(f"✅ [Payment] subscription status: is_subscribed={data.get('is_subscribed')}")
+                return data
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ [Payment] HTTP {e.response.status_code}: {e.response.text}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"❌ [Payment] Request failed: {e}")
+            raise
 
     async def get_characters(self) -> Dict[str, Any]:
         """
