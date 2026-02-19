@@ -22,22 +22,11 @@ from app.schemas import (
 )
 from app.client import service_client
 from app.services.prompt_builder import PromptBuilder
+from app.services.subscription_helpers import get_free_message_limit
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
-
-# Default free-tier message limit — overridden by S3 app-settings
-DEFAULT_FREE_MESSAGE_LIMIT = 10
-
-
-async def _get_free_message_limit() -> int:
-    """Get free_message_limit from Config Service, fallback to default."""
-    try:
-        settings_data = await service_client.get_app_settings()
-        return settings_data.get("free_message_limit", DEFAULT_FREE_MESSAGE_LIMIT)
-    except Exception:
-        return DEFAULT_FREE_MESSAGE_LIMIT
 
 
 @router.get("", response_model=ConversationsListResponse)
@@ -338,7 +327,7 @@ async def send_message(
     )
 
     if not is_subscribed:
-        free_limit = await _get_free_message_limit()
+        free_limit = await get_free_message_limit()
         counter = await session.get(MessageCounter, user_id)
         messages_used = counter.message_count if counter else 0
         if messages_used >= free_limit:
