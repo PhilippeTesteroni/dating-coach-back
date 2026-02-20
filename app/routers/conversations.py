@@ -207,16 +207,12 @@ async def create_conversation(
     if scenario.get("greeting"):
         try:
             system_prompt = await _build_system_prompt(conversation, profile)
-            
-            greeting_instruction = (
-                "[SYSTEM: Начни разговор первым. "
-                "Каждый раз придумывай новый, непохожий на предыдущие способ начать общение. "
-                "Это может быть реакция на что-то вокруг, вопрос, шутка, провокация, комплимент, "
-                "наблюдение, история — что угодно, что соответствует твоему характеру. "
-                "НЕ используй банальные приветствия типа 'привет, как дела'. "
-                "Будь креативным и непредсказуемым. Одно-два предложения максимум.]"
+
+            greeting_instruction = scenario.get(
+                "greeting_instruction",
+                "Start the conversation naturally. One or two sentences max."
             )
-            
+
             ai_response = await service_client.call_ai(
                 messages=[{"role": "user", "content": greeting_instruction}],
                 system_prompt=system_prompt
