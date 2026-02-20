@@ -49,8 +49,8 @@ class Evaluator:
 
         # 2. Load evaluator prompt from S3
         prompt_data = await service_client.get_file("prompts/training_evaluator.json")
-        # File structure: {"system_prompt": "..."} — no "content" wrapper
-        system_prompt = prompt_data.get("system_prompt", "")
+        # FileResponse wraps content in "content" field
+        system_prompt = prompt_data.get("content", {}).get("system_prompt", "")
 
         # 3. Build user message
         transcript = self._build_transcript(messages)
