@@ -60,7 +60,15 @@ async def list_conversations(
         .label("last_message")
     )
 
-    # Main query
+    # Subquery: exists — есть ли хоть одно сообщение
+    has_messages_subq = (
+        select(Message.id)
+        .where(Message.conversation_id == Conversation.id)
+        .correlate(Conversation)
+        .exists()
+    )
+
+    # Main query — только разговоры с хотя бы одним сообщением
     result = await session.execute(
         select(
             Conversation,
@@ -70,6 +78,7 @@ async def list_conversations(
         .where(
             Conversation.user_id == user_id,
             Conversation.submode_id == submode_id,
+            has_messages_subq,
         )
         .order_by(desc(Conversation.updated_at))
         .limit(50)
