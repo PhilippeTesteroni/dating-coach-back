@@ -156,11 +156,24 @@ class MessageRole(str, Enum):
     assistant = "assistant"
 
 
+class GreetingRequest(BaseModel):
+    """Request to generate a greeting without creating a conversation"""
+    submode_id: str = Field(..., description="Submode identifier")
+    character_id: Optional[str] = Field(None, description="Character ID (for character modes)")
+    language: str = Field(default="en", max_length=10)
+
+
+class GreetingResponse(BaseModel):
+    """Generated greeting message"""
+    content: str
+
+
 class CreateConversationRequest(BaseModel):
     """Request to create a new conversation"""
     submode_id: str = Field(..., description="Submode identifier (e.g., open_chat, first_contact)")
     character_id: Optional[str] = Field(None, description="Character ID (required for character modes)")
     language: str = Field(default="ru", max_length=10)
+    seed_message: Optional[str] = Field(None, description="Greeting message to save as first assistant message")
 
 
 class ConversationResponse(BaseModel):

@@ -18,7 +18,8 @@ from app.schemas import (
     CreateConversationRequest, ConversationResponse,
     MessageResponse, MessagesResponse,
     SendMessageRequest, SendMessageResponse,
-    ConversationListItem, ConversationsListResponse
+    ConversationListItem, ConversationsListResponse,
+    GreetingRequest, GreetingResponse,
 )
 from app.client import service_client
 from app.services.prompt_builder import PromptBuilder
@@ -129,6 +130,94 @@ async def delete_all_conversations(
     return {"deleted_count": count}
 
 
+@router.post("/greeting", response_model=GreetingResponse)
+async def get_greeting(
+    request: GreetingRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_session)
+) -> GreetingResponse:
+    """
+    Generate a greeting message without creating a conversation.
+
+    Stateless — no DB writes. Used by the client to show a greeting
+    before the user sends their first message.
+    """
+    scenario = await service_client.get_scenario(request.submode_id)
+
+    if not scenario.get("greeting"):
+        return GreetingResponse(content="")
+
+    profile = await session.get(UserProfile, user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Build a minimal temporary conversation object for prompt building
+    modes_data = await service_client.get_modes()
+    submode = next((m for m in modes_data.get("modes", []) if m["id"] == request.submode_id), None)
+    if not submode:
+        raise HTTPException(status_code=400, detail=f"Invalid submode_id: {request.submode_id}")
+
+    actor_type = ActorType(submode["actor_type"])
+
+    # Build system prompt
+    if actor_type == ActorType.character:
+        characters_data = await service_client.get_characters()
+        character = next(
+            (c for c in characters_data.get("characters", []) if c["id"] == request.character_id),
+            None
+        )
+        if not character:
+            raise HTTPException(status_code=400, detail="Character not found")
+
+        model_age = PromptBuilder.generate_model_age(profile.age_range_min, profile.age_range_max)
+        model_orientation = PromptBuilder.calculate_orientation(
+            profile.gender.value if profile.gender else "male",
+            profile.preferred_gender.value
+        )
+
+        # Temporary object for prompt builder
+        class _TempConv:
+            actor_type = ActorType.character
+            character_id = request.character_id
+            submode_id = request.submode_id
+
+        system_prompt = await PromptBuilder.build_character_prompt(
+            character=character,
+            scenario=scenario,
+            user_gender=profile.gender.value if profile.gender else "male",
+            user_preference=profile.preferred_gender.value,
+            model_age=model_age,
+            language=request.language
+        )
+    else:
+        characters_data = await service_client.get_characters()
+        hitch = next(
+            (c for c in characters_data.get("characters", []) if c["id"] == "hitch"),
+            None
+        )
+        system_prompt = await PromptBuilder.build_coach_prompt(
+            coach_character=hitch,
+            scenario=scenario,
+            language=request.language
+        )
+
+    greeting_instruction = scenario.get(
+        "greeting_instruction",
+        "Start the conversation naturally. One or two sentences max."
+    )
+
+    try:
+        content = await service_client.call_ai(
+            messages=[{"role": "user", "content": greeting_instruction}],
+            system_prompt=system_prompt
+        )
+        logger.info(f"✅ Generated greeting for submode={request.submode_id} user={user_id}")
+        return GreetingResponse(content=content)
+    except Exception as e:
+        logger.error(f"❌ Greeting generation failed: {e}")
+        raise HTTPException(status_code=502, detail="AI service unavailable")
+
+
 @router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     request: CreateConversationRequest,
@@ -199,44 +288,29 @@ async def create_conversation(
     await session.refresh(conversation)
     
     logger.info(f"✅ Created conversation {conversation.id} for user {user_id}")
-    
-    # Generate greeting if scenario requires it
+
+    # Save seed_message (greeting) if provided by client
     first_message_response = None
-    scenario = await service_client.get_scenario(request.submode_id)
-    
-    if scenario.get("greeting"):
+    if request.seed_message:
         try:
-            system_prompt = await _build_system_prompt(conversation, profile)
-
-            greeting_instruction = scenario.get(
-                "greeting_instruction",
-                "Start the conversation naturally. One or two sentences max."
-            )
-
-            ai_response = await service_client.call_ai(
-                messages=[{"role": "user", "content": greeting_instruction}],
-                system_prompt=system_prompt
-            )
-            
             greeting_message = Message(
                 conversation_id=conversation.id,
                 role=MessageRole.assistant,
-                content=ai_response
+                content=request.seed_message
             )
             session.add(greeting_message)
             await session.commit()
             await session.refresh(greeting_message)
-            
+
             first_message_response = MessageResponse(
                 id=str(greeting_message.id),
                 role=greeting_message.role,
                 content=greeting_message.content,
                 created_at=greeting_message.created_at.isoformat()
             )
-            
-            logger.info(f"✅ Generated greeting for conversation {conversation.id}")
+            logger.info(f"✅ Saved seed greeting for conversation {conversation.id}")
         except Exception as e:
-            logger.error(f"⚠️ Greeting generation failed (non-blocking): {e}")
+            logger.error(f"⚠️ Failed to save seed_message: {e}")
     
     return ConversationResponse(
         id=str(conversation.id),
