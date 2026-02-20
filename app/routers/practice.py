@@ -77,6 +77,7 @@ async def get_progress(
 
     return ProgressResponse(
         onboarding_complete=data["onboarding_complete"],
+        pre_training_conversation_id=data.get("pre_training_conversation_id"),
         trainings=[
             {
                 "submode_id": t["submode_id"],

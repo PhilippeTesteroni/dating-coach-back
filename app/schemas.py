@@ -300,6 +300,7 @@ class TrainingState(BaseModel):
 class ProgressResponse(BaseModel):
     """Full training progress for the user"""
     onboarding_complete: bool
+    pre_training_conversation_id: Optional[str] = None
     trainings: List[TrainingState]
 
 

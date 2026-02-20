@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-from app.models import TrainingProgress
+from app.models import TrainingProgress, Conversation
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +96,19 @@ class ProgressService:
 
         onboarding_complete = len(rows) > 0
 
+        # Find last pre_training conversation for this user
+        pre_training_conv = await db.execute(
+            select(Conversation)
+            .where(
+                Conversation.user_id == user_id,
+                Conversation.submode_id == "pre_training",
+            )
+            .order_by(Conversation.created_at.desc())
+            .limit(1)
+        )
+        pre_training_row = pre_training_conv.scalar_one_or_none()
+        pre_training_conversation_id = str(pre_training_row.id) if pre_training_row else None
+
         trainings = []
         for submode_id in TRAINING_ORDER:
             levels = []
@@ -109,7 +122,7 @@ class ProgressService:
                 })
             trainings.append({"submode_id": submode_id, "levels": levels})
 
-        return {"onboarding_complete": onboarding_complete, "trainings": trainings}
+        return {"onboarding_complete": onboarding_complete, "pre_training_conversation_id": pre_training_conversation_id, "trainings": trainings}
 
     async def unlock_next(
         self,
