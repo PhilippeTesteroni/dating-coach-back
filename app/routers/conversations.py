@@ -138,12 +138,9 @@ async def get_greeting(
 ) -> GreetingResponse:
     """
     Generate a greeting message without creating a conversation.
-
-    Stateless — no DB writes. Used by the client to show a greeting
-    before the user sends their first message.
+    Stateless — no DB writes.
     """
     scenario = await service_client.get_scenario(request.submode_id)
-
     if not scenario.get("greeting"):
         return GreetingResponse(content="")
 
@@ -151,64 +148,39 @@ async def get_greeting(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    # Build a minimal temporary conversation object for prompt building
     modes_data = await service_client.get_modes()
     submode = next((m for m in modes_data.get("modes", []) if m["id"] == request.submode_id), None)
     if not submode:
         raise HTTPException(status_code=400, detail=f"Invalid submode_id: {request.submode_id}")
 
     actor_type = ActorType(submode["actor_type"])
+    characters_data = await service_client.get_characters()
 
-    # Build system prompt
     if actor_type == ActorType.character:
-        characters_data = await service_client.get_characters()
         character = next(
             (c for c in characters_data.get("characters", []) if c["id"] == request.character_id),
             None
         )
         if not character:
             raise HTTPException(status_code=400, detail="Character not found")
-
-        model_age = PromptBuilder.generate_model_age(profile.age_range_min, profile.age_range_max)
-        model_orientation = PromptBuilder.calculate_orientation(
-            profile.gender.value if profile.gender else "male",
-            profile.preferred_gender.value
-        )
-
-        # Temporary object for prompt builder
-        class _TempConv:
-            actor_type = ActorType.character
-            character_id = request.character_id
-            submode_id = request.submode_id
-
-        system_prompt = await PromptBuilder.build_character_prompt(
-            character=character,
-            scenario=scenario,
-            user_gender=profile.gender.value if profile.gender else "male",
-            user_preference=profile.preferred_gender.value,
-            model_age=model_age,
-            language=request.language
-        )
     else:
-        characters_data = await service_client.get_characters()
-        hitch = next(
+        character = next(
             (c for c in characters_data.get("characters", []) if c["id"] == "hitch"),
             None
         )
-        system_prompt = await PromptBuilder.build_coach_prompt(
-            coach_character=hitch,
-            scenario=scenario,
-            language=request.language
-        )
 
-    greeting_instruction = scenario.get(
-        "greeting_instruction",
-        "Start the conversation naturally. One or two sentences max."
+    system_prompt, user_message = await PromptBuilder.build_greeting_prompt(
+        character=character,
+        scenario=scenario,
+        language=request.language,
+        user_gender=profile.gender.value if profile.gender else None,
+        user_age_min=profile.age_range_min,
+        user_age_max=profile.age_range_max,
     )
 
     try:
         content = await service_client.call_ai(
-            messages=[{"role": "user", "content": greeting_instruction}],
+            messages=[{"role": "user", "content": user_message}],
             system_prompt=system_prompt
         )
         logger.info(f"✅ Generated greeting for submode={request.submode_id} user={user_id}")
