@@ -8,12 +8,12 @@ from sqlalchemy import select, delete
 
 from app.database import get_session
 from app.dependencies import get_current_user_id
-from app.models import TrainingAttempt
+from app.models import TrainingAttempt, Conversation
 from app.services.evaluator import evaluator
 from app.services.progress_service import progress_service
 from app.schemas import (
     EvaluateRequest, EvaluateResponse, EvaluateFeedback,
-    ProgressResponse, TrainingAttemptItem, TrainingHistoryResponse,
+    ProgressResponse, TrainingConversationItem, TrainingHistoryResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,23 +109,44 @@ async def get_training_history(
     session: AsyncSession = Depends(get_session),
 ) -> TrainingHistoryResponse:
     """
-    Get training attempt history for the current user.
+    Get training conversation history for the current user.
 
-    Returns all attempts sorted by date descending.
+    Returns all training conversations (excluding pre_training),
+    sorted by created_at desc. Includes evaluate result if available.
     """
-    result = await session.execute(
-        select(TrainingAttempt)
-        .where(TrainingAttempt.user_id == user_id)
-        .order_by(TrainingAttempt.created_at.desc())
+    # 1. All training conversations (excluding pre_training)
+    conv_result = await session.execute(
+        select(Conversation)
+        .where(
+            Conversation.user_id == user_id,
+            Conversation.mode_id == "training",
+            Conversation.submode_id != "pre_training",
+        )
+        .order_by(Conversation.created_at.desc())
     )
-    attempts = result.scalars().all()
+    conversations = conv_result.scalars().all()
 
+    if not conversations:
+        return TrainingHistoryResponse(conversations=[])
+
+    # 2. Load all attempts for these conversations in one query
+    conv_ids = [c.id for c in conversations]
+    attempt_result = await session.execute(
+        select(TrainingAttempt).where(TrainingAttempt.conversation_id.in_(conv_ids))
+    )
+    attempts = attempt_result.scalars().all()
+
+    # Index by conversation_id (one attempt per conversation)
+    attempt_index: dict = {a.conversation_id: a for a in attempts}
+
+    # 3. Build response
     items = []
-    for a in attempts:
+    for c in conversations:
+        attempt = attempt_index.get(c.id)
         feedback = None
-        if a.feedback:
+        if attempt and attempt.feedback:
             try:
-                raw = json.loads(a.feedback)
+                raw = json.loads(attempt.feedback)
                 feedback = EvaluateFeedback(
                     observed=raw.get("observed", []),
                     interpretation=raw.get("interpretation", []),
@@ -133,42 +154,42 @@ async def get_training_history(
             except Exception:
                 pass
 
-        items.append(TrainingAttemptItem(
-            attempt_id=str(a.id),
-            conversation_id=str(a.conversation_id) if a.conversation_id else None,
-            submode_id=a.submode_id,
-            difficulty_level=a.difficulty_level,
-            status=a.status,  # "pass" | "fail"
-            created_at=a.created_at.isoformat(),
+        items.append(TrainingConversationItem(
+            conversation_id=str(c.id),
+            submode_id=c.submode_id,
+            difficulty_level=c.difficulty_level,
+            created_at=c.created_at.isoformat(),
+            attempt_id=str(attempt.id) if attempt else None,
+            status=attempt.status if attempt else None,
             feedback=feedback,
         ))
 
-    return TrainingHistoryResponse(attempts=items)
+    return TrainingHistoryResponse(conversations=items)
 
 
-@router.delete("/history/{attempt_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_training_attempt(
-    attempt_id: UUID,
+@router.delete("/history/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_training_conversation(
+    conversation_id: UUID,
     user_id: UUID = Depends(get_current_user_id),
     session: AsyncSession = Depends(get_session),
 ):
     """
-    Delete a training attempt from history.
+    Delete a training conversation from history.
 
-    Only deletes the attempt record. Conversation is not affected.
+    Deletes the conversation (cascade deletes messages and attempt).
     """
     result = await session.execute(
-        select(TrainingAttempt).where(
-            TrainingAttempt.id == attempt_id,
-            TrainingAttempt.user_id == user_id,
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
         )
     )
-    attempt = result.scalar_one_or_none()
-    if not attempt:
-        raise HTTPException(status_code=404, detail="Attempt not found")
+    conv = result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
     await session.execute(
-        delete(TrainingAttempt).where(TrainingAttempt.id == attempt_id)
+        delete(Conversation).where(Conversation.id == conversation_id)
     )
     await session.commit()
-    logger.info(f"🗑 [Practice] attempt={attempt_id} deleted for user={user_id}")
+    logger.info(f"🗑 [Practice] conversation={conversation_id} deleted for user={user_id}")

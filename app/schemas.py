@@ -304,17 +304,22 @@ class ProgressResponse(BaseModel):
     trainings: List[TrainingState]
 
 
-class TrainingAttemptItem(BaseModel):
-    """Single training attempt for history list"""
-    attempt_id: str
-    conversation_id: Optional[str] = None
+class TrainingConversationItem(BaseModel):
+    """Single training conversation for history list.
+    
+    conversation_id — для открытия чата.
+    attempt_id / status / feedback — если evaluate был пройден.
+    """
+    conversation_id: str
     submode_id: str
-    difficulty_level: int
-    status: str                          # "pass" | "fail"
+    difficulty_level: Optional[int] = None
     created_at: str
+    # Результат evaluate (null если ещё не оценён)
+    attempt_id: Optional[str] = None
+    status: Optional[str] = None         # "pass" | "fail" | null
     feedback: Optional[EvaluateFeedback] = None
 
 
 class TrainingHistoryResponse(BaseModel):
-    """List of training attempts for history screen"""
-    attempts: List[TrainingAttemptItem]
+    """List of training conversations for history screen"""
+    conversations: List[TrainingConversationItem]
