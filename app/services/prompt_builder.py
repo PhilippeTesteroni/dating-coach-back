@@ -109,7 +109,64 @@ class PromptBuilder:
         return system_prompt
 
     @classmethod
-    async def build_coach_prompt(
+    async def build_greeting_prompt(
+        cls,
+        character: Dict[str, Any],
+        scenario: Dict[str, Any],
+        language: str = "en",
+        user_gender: Optional[str] = None,
+        user_age_min: Optional[int] = None,
+        user_age_max: Optional[int] = None,
+    ) -> tuple[str, str]:
+        """
+        Build system + user prompt specifically for greeting generation.
+
+        Keeps greeting separate from the main conversation prompt —
+        lighter, character-voice-focused, user-context-aware.
+
+        Returns (system_prompt, user_message).
+        """
+        is_coach = character.get("type") == "coach"
+
+        # --- System prompt ---
+        base_prompt = character.get("base_prompt", "")
+        greeting_style = character.get("greeting_style", "")
+
+        greeting_style_block = (
+            f"GREETING STYLE:\n{greeting_style}" if greeting_style else ""
+        )
+
+        language_instruction = (
+            "LANGUAGE: Respond in English by default. "
+            "If the user writes in another language, switch immediately."
+        )
+
+        system_parts = [p for p in [base_prompt, greeting_style_block, language_instruction] if p]
+        system_prompt = "\n\n".join(system_parts)
+
+        # --- User message (task + user context) ---
+        greeting_instruction = scenario.get(
+            "greeting_instruction",
+            "Open the conversation naturally. One or two sentences max."
+        )
+
+        context_parts = []
+        if user_gender:
+            context_parts.append(f"user gender: {user_gender}")
+        if user_age_min is not None and user_age_max is not None:
+            context_parts.append(f"user age range: {user_age_min}–{user_age_max}")
+
+        user_context = f"Context: {', '.join(context_parts)}." if context_parts else ""
+
+        user_message_parts = [p for p in [user_context, greeting_instruction] if p]
+        user_message = "\n".join(user_message_parts)
+
+        logger.info(
+            f"✅ Built greeting prompt: char={character.get('id')}, "
+            f"submode={scenario.get('id')}, lang={language}"
+        )
+
+        return system_prompt, user_message
         cls,
         coach_character: Dict[str, Any],
         scenario: Dict[str, Any],
