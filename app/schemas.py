@@ -261,3 +261,42 @@ class VerifySubscriptionRequest(BaseModel):
     purchase_token: str = Field(..., description="Store purchase token")
     platform: str = Field(default="google_play", description="google_play or app_store")
     base_plan_id: Optional[str] = Field(None, description="Base plan ID (e.g. 01, 02)")
+
+
+# ============ Practice Schemas ============
+
+class EvaluateRequest(BaseModel):
+    """Request to evaluate a completed training conversation"""
+    conversation_id: str = Field(..., description="UUID of the training conversation")
+    submode_id: str = Field(..., description="Training submode (e.g. first_contact)")
+    difficulty_level: int = Field(..., ge=1, le=3, description="1=easy, 2=medium, 3=hard")
+
+
+class EvaluateFeedback(BaseModel):
+    observed: List[str]
+    interpretation: List[str]
+
+
+class EvaluateResponse(BaseModel):
+    """Result of training evaluation"""
+    status: str                          # "pass" | "fail"
+    feedback: EvaluateFeedback
+    unlocked: List[dict]                 # [{submode_id, difficulty_level}, ...]
+
+
+class TrainingLevelState(BaseModel):
+    difficulty_level: int
+    is_unlocked: bool
+    passed: bool
+    passed_at: Optional[str] = None
+
+
+class TrainingState(BaseModel):
+    submode_id: str
+    levels: List[TrainingLevelState]
+
+
+class ProgressResponse(BaseModel):
+    """Full training progress for the user"""
+    onboarding_complete: bool
+    trainings: List[TrainingState]

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, user, purchase, characters, modes, conversations, app_settings, subscription
+from app.routers import auth, user, purchase, characters, modes, conversations, app_settings, subscription, practice
 from app.schemas import HealthResponse
 
 # Configure logging
@@ -51,6 +51,7 @@ app.include_router(modes.router, prefix="/api")
 app.include_router(conversations.router, prefix="/api")
 app.include_router(app_settings.router, prefix="/api")
 app.include_router(subscription.router, prefix="/api")
+app.include_router(practice.router, prefix="/api")
 
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])
