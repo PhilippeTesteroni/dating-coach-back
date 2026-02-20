@@ -124,8 +124,14 @@ class PromptBuilder:
         """
         base_prompt = coach_character.get("base_prompt", "")
         scenario_prompt = scenario.get("scenario_prompt", "")
-        
-        system_prompt = f"{base_prompt}\n\n{scenario_prompt}"
+
+        language_instruction = (
+            "LANGUAGE: Respond in English by default. "
+            "If the user writes in another language, switch to that language immediately "
+            "and maintain it throughout the conversation."
+        )
+
+        system_prompt = f"{base_prompt}\n\n{scenario_prompt}\n\n{language_instruction}"
         
         logger.info(f"✅ Built coach prompt: mode={scenario.get('mode_id')}")
         
