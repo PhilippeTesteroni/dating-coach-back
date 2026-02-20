@@ -167,6 +167,9 @@ class PromptBuilder:
         )
 
         return system_prompt, user_message
+
+    @classmethod
+    async def build_coach_prompt(
         cls,
         coach_character: Dict[str, Any],
         scenario: Dict[str, Any],
@@ -174,7 +177,7 @@ class PromptBuilder:
     ) -> str:
         """
         Build system prompt for coach mode.
-        
+
         Components:
         1. Hitch's base_prompt
         2. Scenario prompt
@@ -189,7 +192,7 @@ class PromptBuilder:
         )
 
         system_prompt = f"{base_prompt}\n\n{scenario_prompt}\n\n{language_instruction}"
-        
+
         logger.info(f"✅ Built coach prompt: mode={scenario.get('mode_id')}")
-        
+
         return system_prompt
