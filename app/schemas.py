@@ -172,6 +172,7 @@ class CreateConversationRequest(BaseModel):
     """Request to create a new conversation"""
     submode_id: str = Field(..., description="Submode identifier (e.g., open_chat, first_contact)")
     character_id: Optional[str] = Field(None, description="Character ID (required for character modes)")
+    difficulty_level: Optional[int] = Field(None, ge=1, le=3, description="1=easy, 2=medium, 3=hard (training modes only)")
     language: str = Field(default="ru", max_length=10)
     seed_message: Optional[str] = Field(None, description="Greeting message to save as first assistant message")
 

@@ -250,6 +250,7 @@ async def create_conversation(
         submode_id=request.submode_id,
         actor_type=actor_type,
         character_id=character_id,
+        difficulty_level=request.difficulty_level,
         model_age=model_age,
         model_orientation=model_orientation,
         language=request.language
@@ -475,7 +476,8 @@ async def _build_system_prompt(conversation: Conversation, profile: UserProfile)
             user_gender=profile.gender.value if profile.gender else "male",
             user_preference=profile.preferred_gender.value,
             model_age=conversation.model_age,
-            language=conversation.language
+            language=conversation.language,
+            difficulty_level=conversation.difficulty_level,
         )
     else:
         # Coach mode - get Hitch
