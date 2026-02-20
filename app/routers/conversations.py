@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
 
+# Submodes that don't consume free-tier messages (onboarding / coach flows)
+EXEMPT_SUBMODES = {"pre_training"}
+
 
 @router.get("", response_model=ConversationsListResponse)
 async def list_conversations(
@@ -365,8 +368,9 @@ async def send_message(
     # ── Subscription / free-tier check ──
     token = authorization.replace("Bearer ", "") if authorization else ""
     is_subscribed = await check_subscription_via_payment(token)
+    is_exempt = conversation.submode_id in EXEMPT_SUBMODES
 
-    if not is_subscribed:
+    if not is_subscribed and not is_exempt:
         free_limit = await get_free_message_limit()
         counter = await session.get(MessageCounter, user_id)
         messages_used = counter.message_count if counter else 0
@@ -425,7 +429,7 @@ async def send_message(
     session.add(assistant_message)
     
     # ── Increment message counter (free-tier tracking) ──
-    if not is_subscribed:
+    if not is_subscribed and not is_exempt:
         counter = await session.get(MessageCounter, user_id)
         if not counter:
             counter = MessageCounter(user_id=user_id, message_count=0)
