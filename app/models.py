@@ -159,6 +159,50 @@ class Message(Base):
     conversation = relationship("Conversation", back_populates="messages")
 
 
+class AttemptStatus(str, enum.Enum):
+    pass_ = "pass"
+    fail = "fail"
+
+
+class TrainingProgress(Base):
+    """
+    Unlocked/passed state per (user, submode, difficulty_level).
+
+    Table: dc_training_progress
+    difficulty_level: 1=easy, 2=medium, 3=hard
+    """
+    __tablename__ = "dc_training_progress"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("dc_user_profiles.user_id", ondelete="CASCADE"), nullable=False)
+    submode_id = Column(String(50), nullable=False)
+    difficulty_level = Column(Integer, nullable=False)
+    is_unlocked = Column(Boolean, default=False, nullable=False)
+    passed = Column(Boolean, default=False, nullable=False)
+    passed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=text("NOW()"))
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, server_default=text("NOW()"))
+
+
+class TrainingAttempt(Base):
+    """
+    Result of one evaluation (finish button tap).
+
+    Table: dc_training_attempts
+    feedback: {observed: [...], interpretation: [...]}
+    """
+    __tablename__ = "dc_training_attempts"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("dc_user_profiles.user_id", ondelete="CASCADE"), nullable=False)
+    conversation_id = Column(PG_UUID(as_uuid=True), ForeignKey("dc_conversations.id", ondelete="SET NULL"), nullable=True)
+    submode_id = Column(String(50), nullable=False)
+    difficulty_level = Column(Integer, nullable=False)
+    status = Column(Enum(AttemptStatus), nullable=False)
+    feedback = Column(Text, nullable=True)  # JSON string: {observed: [...], interpretation: [...]}
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=text("NOW()"))
+
+
 class MessageCounter(Base):
     """
     Free-tier message counter per user.
