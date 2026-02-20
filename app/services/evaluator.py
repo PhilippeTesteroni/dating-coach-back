@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.client import service_client
-from app.models import TrainingAttempt, TrainingProgress, AttemptStatus, Message
+from app.models import TrainingAttempt, TrainingProgress, Message
 from app.services.progress_service import progress_service
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class Evaluator:
             conversation_id=conversation_id,
             submode_id=submode_id,
             difficulty_level=difficulty_level,
-            status=AttemptStatus.pass_ if status == "pass" else AttemptStatus.fail,
+            status=status,  # "pass" | "fail"
             feedback=json.dumps(feedback),
         ))
 

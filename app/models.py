@@ -198,7 +198,7 @@ class TrainingAttempt(Base):
     conversation_id = Column(PG_UUID(as_uuid=True), ForeignKey("dc_conversations.id", ondelete="SET NULL"), nullable=True)
     submode_id = Column(String(50), nullable=False)
     difficulty_level = Column(Integer, nullable=False)
-    status = Column(Enum(AttemptStatus), nullable=False)
+    status = Column(String(10), nullable=False)  # "pass" | "fail"
     feedback = Column(Text, nullable=True)  # JSON string: {observed: [...], interpretation: [...]}
     created_at = Column(DateTime, default=datetime.utcnow, server_default=text("NOW()"))
 

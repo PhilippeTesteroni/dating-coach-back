@@ -138,7 +138,7 @@ async def get_training_history(
             conversation_id=str(a.conversation_id) if a.conversation_id else None,
             submode_id=a.submode_id,
             difficulty_level=a.difficulty_level,
-            status=a.status.value,  # AttemptStatus.pass_ → "pass", AttemptStatus.fail → "fail"
+            status=a.status,  # "pass" | "fail"
             created_at=a.created_at.isoformat(),
             feedback=feedback,
         ))
