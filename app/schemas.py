@@ -301,3 +301,19 @@ class ProgressResponse(BaseModel):
     """Full training progress for the user"""
     onboarding_complete: bool
     trainings: List[TrainingState]
+
+
+class TrainingAttemptItem(BaseModel):
+    """Single training attempt for history list"""
+    attempt_id: str
+    conversation_id: Optional[str] = None
+    submode_id: str
+    difficulty_level: int
+    status: str                          # "pass" | "fail"
+    created_at: str
+    feedback: Optional[EvaluateFeedback] = None
+
+
+class TrainingHistoryResponse(BaseModel):
+    """List of training attempts for history screen"""
+    attempts: List[TrainingAttemptItem]
