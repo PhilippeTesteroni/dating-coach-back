@@ -308,10 +308,12 @@ class TrainingConversationItem(BaseModel):
     """Single training conversation for history list.
     
     conversation_id — для открытия чата.
+    character_id — персонаж, с которым был диалог.
     attempt_id / status / feedback — если evaluate был пройден.
     """
     conversation_id: str
     submode_id: str
+    character_id: Optional[str] = None
     difficulty_level: Optional[int] = None
     created_at: str
     # Результат evaluate (null если ещё не оценён)

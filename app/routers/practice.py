@@ -157,6 +157,7 @@ async def get_training_history(
         items.append(TrainingConversationItem(
             conversation_id=str(c.id),
             submode_id=c.submode_id,
+            character_id=c.character_id,
             difficulty_level=c.difficulty_level,
             created_at=c.created_at.isoformat(),
             attempt_id=str(attempt.id) if attempt else None,
