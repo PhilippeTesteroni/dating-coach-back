@@ -14,7 +14,7 @@ from app.models import MessageCounter
 from app.schemas import SubscriptionStatusResponse, SubscriptionStatusEnum
 
 logger = logging.getLogger(__name__)
-DEFAULT_FREE_MESSAGE_LIMIT = 10
+DEFAULT_FREE_MESSAGE_LIMIT = 30
 
 
 async def get_free_message_limit() -> int:
