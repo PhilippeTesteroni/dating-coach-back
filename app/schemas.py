@@ -325,3 +325,12 @@ class TrainingConversationItem(BaseModel):
 class TrainingHistoryResponse(BaseModel):
     """List of training conversations for history screen"""
     conversations: List[TrainingConversationItem]
+
+
+class DifficultyLevelInfo(BaseModel):
+    level: int
+    message_limit: int
+
+class ScenarioInfoResponse(BaseModel):
+    submode_id: str
+    difficulty_levels: List[DifficultyLevelInfo]

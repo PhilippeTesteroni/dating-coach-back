@@ -8,12 +8,14 @@ from sqlalchemy import select, delete
 
 from app.database import get_session
 from app.dependencies import get_current_user_id
+from app.client import service_client
 from app.models import TrainingAttempt, Conversation
 from app.services.evaluator import evaluator
 from app.services.progress_service import progress_service
 from app.schemas import (
     EvaluateRequest, EvaluateResponse, EvaluateFeedback,
     ProgressResponse, TrainingConversationItem, TrainingHistoryResponse,
+    ScenarioInfoResponse, DifficultyLevelInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -194,3 +196,27 @@ async def delete_training_conversation(
     )
     await session.commit()
     logger.info(f"🗑 [Practice] conversation={conversation_id} deleted for user={user_id}")
+
+
+@router.get("/scenario/{submode_id}", response_model=ScenarioInfoResponse)
+async def get_scenario_info(submode_id: str):
+    """
+    Get scenario config for a training mode.
+    Returns message_limit per difficulty level from S3 scenario config.
+    """
+    try:
+        scenario = await service_client.get_scenario(submode_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail=f"Scenario not found: {submode_id}")
+
+    levels_raw = scenario.get("difficulty_levels") or []
+    levels = [
+        DifficultyLevelInfo(
+            level=lv["level"],
+            message_limit=lv.get("message_limit", 10),
+        )
+        for lv in levels_raw
+        if "level" in lv
+    ]
+
+    return ScenarioInfoResponse(submode_id=submode_id, difficulty_levels=levels)

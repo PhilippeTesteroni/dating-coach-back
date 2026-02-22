@@ -384,6 +384,38 @@ async def send_message(
                 },
             )
     
+    # ── Training message limit check ──
+    if conversation.mode_id == "training" and conversation.difficulty_level:
+        try:
+            scenario = await service_client.get_scenario(conversation.submode_id)
+            levels = scenario.get("difficulty_levels") or []
+            level_config = next(
+                (lv for lv in levels if lv.get("level") == conversation.difficulty_level),
+                None,
+            )
+            if level_config:
+                msg_limit = level_config.get("message_limit")
+                if msg_limit:
+                    user_msg_count = await session.scalar(
+                        select(func.count(Message.id)).where(
+                            Message.conversation_id == conversation_id,
+                            Message.role == MessageRole.user,
+                        )
+                    )
+                    if user_msg_count >= msg_limit:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={
+                                "error": "training_message_limit",
+                                "message_count": user_msg_count,
+                                "message_limit": msg_limit,
+                            },
+                        )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"⚠️ Training limit check failed: {e}")
+
     # Get user profile
     profile = await session.get(UserProfile, user_id)
     

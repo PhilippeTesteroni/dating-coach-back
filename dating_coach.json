@@ -1,0 +1,27 @@
+{
+  "app_id": "dating_coach",
+  "welcome_bonus": null,
+  "credit_cost": null,
+  "referrer_bonus": 0,
+  "referred_bonus": 0,
+  "credit_packages": null,
+  "free_message_limit": 30,
+  "subscription_products": [
+    {
+      "product_id": "week_subscription",
+      "base_plan_id": "01",
+      "name": "Weekly",
+      "period": "week",
+      "price": 9.99,
+      "currency": "USD"
+    },
+    {
+      "product_id": "week_subscription",
+      "base_plan_id": "02",
+      "name": "Monthly",
+      "period": "month",
+      "price": 20.99,
+      "currency": "USD"
+    }
+  ]
+}

@@ -128,7 +128,7 @@
       "order": 4
     },
     {
-      "id": "after_rejection",
+      "id": "reflection_after_rejection",
       "category": "reflection",
       "name": "After Rejection",
       "name_ru": "После отказа",
@@ -138,9 +138,9 @@
       "order": 1
     },
     {
-      "id": "after_failed_dialog",
+      "id": "reflection_after_difficult_conversation",
       "category": "reflection",
-      "name": "After Failed Dialog",
+      "name": "After a Difficult Conversation",
       "name_ru": "После неудачного диалога",
       "description": "Reflect on unsuccessful conversation",
       "actor_type": "coach",
@@ -148,9 +148,9 @@
       "order": 2
     },
     {
-      "id": "after_date_reflection",
+      "id": "reflection_after_meeting",
       "category": "reflection",
-      "name": "After Date Reflection",
+      "name": "After a Meeting",
       "name_ru": "После свидания",
       "description": "Reflect on how the date went",
       "actor_type": "coach",
@@ -158,9 +158,9 @@
       "order": 3
     },
     {
-      "id": "before_big_step",
+      "id": "reflection_before_important_step",
       "category": "reflection",
-      "name": "Before Big Step",
+      "name": "Before an Important Step",
       "name_ru": "Перед сложным шагом",
       "description": "Prepare mentally for important moment",
       "actor_type": "coach",
