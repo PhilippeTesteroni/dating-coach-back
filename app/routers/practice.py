@@ -159,7 +159,7 @@ async def get_training_history(
             submode_id=c.submode_id,
             character_id=c.character_id,
             difficulty_level=c.difficulty_level,
-            created_at=c.created_at.isoformat(),
+            created_at=c.created_at.isoformat() + "Z",
             attempt_id=str(attempt.id) if attempt else None,
             status=attempt.status if attempt else None,
             feedback=feedback,
