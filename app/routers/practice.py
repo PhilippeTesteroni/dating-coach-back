@@ -219,4 +219,8 @@ async def get_scenario_info(submode_id: str):
         if "level" in lv
     ]
 
-    return ScenarioInfoResponse(submode_id=submode_id, difficulty_levels=levels)
+    return ScenarioInfoResponse(
+        submode_id=submode_id,
+        description=scenario.get("description"),
+        difficulty_levels=levels,
+    )

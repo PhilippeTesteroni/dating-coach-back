@@ -333,4 +333,5 @@ class DifficultyLevelInfo(BaseModel):
 
 class ScenarioInfoResponse(BaseModel):
     submode_id: str
+    description: Optional[str] = None
     difficulty_levels: List[DifficultyLevelInfo]
