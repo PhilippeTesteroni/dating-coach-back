@@ -214,6 +214,7 @@ async def get_scenario_info(submode_id: str):
         DifficultyLevelInfo(
             level=lv["level"],
             message_limit=lv.get("message_limit", 10),
+            level_description=lv.get("level_description"),
         )
         for lv in levels_raw
         if "level" in lv
