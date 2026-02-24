@@ -136,12 +136,9 @@ class PromptBuilder:
             f"GREETING STYLE:\n{greeting_style}" if greeting_style else ""
         )
 
-        language_instruction = (
-            "LANGUAGE: Respond in English by default. "
-            "If the user writes in another language, switch immediately."
-        )
+        language_instruction = "LANGUAGE: You MUST respond in English only. Do not use any other language."
 
-        system_parts = [p for p in [base_prompt, greeting_style_block, language_instruction] if p]
+        system_parts = [p for p in [language_instruction, base_prompt, greeting_style_block] if p]
         system_prompt = "\n\n".join(system_parts)
 
         # --- User message (task + user context) ---
