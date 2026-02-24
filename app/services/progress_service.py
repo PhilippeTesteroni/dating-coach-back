@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from uuid import UUID
 from typing import Optional
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
 from app.models import TrainingProgress, Conversation
+from app.client import service_client
 
 logger = logging.getLogger(__name__)
 
@@ -94,20 +96,14 @@ class ProgressService:
             (r.submode_id, r.difficulty_level): r for r in rows
         }
 
-        onboarding_complete = len(rows) > 0
-
-        # Find last pre_training conversation for this user
-        pre_training_conv = await db.execute(
-            select(Conversation)
-            .where(
-                Conversation.user_id == user_id,
-                Conversation.submode_id == "pre_training",
+        # Auto-initialize if no progress exists yet
+        if not rows:
+            await self.initialize_progress(db=db, user_id=user_id)
+            result = await db.execute(
+                select(TrainingProgress).where(TrainingProgress.user_id == user_id)
             )
-            .order_by(Conversation.created_at.desc())
-            .limit(1)
-        )
-        pre_training_row = pre_training_conv.scalar_one_or_none()
-        pre_training_conversation_id = str(pre_training_row.id) if pre_training_row else None
+            rows = result.scalars().all()
+            index = {(r.submode_id, r.difficulty_level): r for r in rows}
 
         trainings = []
         for submode_id in TRAINING_ORDER:
@@ -122,7 +118,7 @@ class ProgressService:
                 })
             trainings.append({"submode_id": submode_id, "levels": levels})
 
-        return {"onboarding_complete": onboarding_complete, "pre_training_conversation_id": pre_training_conversation_id, "trainings": trainings}
+        return {"onboarding_complete": True, "pre_training_conversation_id": None, "trainings": trainings}
 
     async def unlock_next(
         self,
