@@ -330,6 +330,7 @@ class TrainingHistoryResponse(BaseModel):
 class DifficultyLevelInfo(BaseModel):
     level: int
     message_limit: int
+    level_description: Optional[str] = None
 
 class ScenarioInfoResponse(BaseModel):
     submode_id: str
