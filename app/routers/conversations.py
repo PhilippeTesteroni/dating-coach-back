@@ -23,6 +23,7 @@ from app.schemas import (
 )
 from app.client import service_client
 from app.services.prompt_builder import PromptBuilder
+from app.services.queue_service import get_conversation_lock
 from app.services.subscription_helpers import get_free_message_limit, check_subscription_via_payment
 
 logger = logging.getLogger(__name__)
@@ -416,81 +417,107 @@ async def send_message(
         except Exception as e:
             logger.warning(f"⚠️ Training limit check failed: {e}")
 
-    # Get user profile
-    profile = await session.get(UserProfile, user_id)
+    # ── Per-conversation queue: serialize concurrent requests ──
+    conv_lock = await get_conversation_lock(conversation_id)
+    async with conv_lock:
+
+        # Get user profile
+        profile = await session.get(UserProfile, user_id)
     
-    # Save user message
-    user_message = Message(
-        conversation_id=conversation_id,
-        role=MessageRole.user,
-        content=request.content
-    )
-    session.add(user_message)
-    await session.flush()
-    
-    # Get message history
-    result = await session.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at)
-    )
-    history = result.scalars().all()
-    
-    # Build messages for AI
-    messages = [{"role": m.role.value, "content": m.content} for m in history]
-    
-    # Build system prompt
-    system_prompt = await _build_system_prompt(conversation, profile)
-    
-    # Call AI Gateway
-    try:
-        ai_response = await service_client.call_ai(
-            messages=messages,
-            system_prompt=system_prompt
+        # Save user message
+        user_message = Message(
+            conversation_id=conversation_id,
+            role=MessageRole.user,
+            content=request.content
         )
-    except Exception as e:
-        logger.error(f"❌ AI Gateway error: {e}")
-        raise HTTPException(status_code=502, detail="AI service unavailable")
-    
-    # Save assistant message
-    assistant_message = Message(
-        conversation_id=conversation_id,
-        role=MessageRole.assistant,
-        content=ai_response
-    )
-    session.add(assistant_message)
-    
-    # ── Increment message counter (free-tier tracking) ──
-    if not is_subscribed and not is_exempt:
-        counter = await session.get(MessageCounter, user_id)
-        if not counter:
-            counter = MessageCounter(user_id=user_id, message_count=0)
-            session.add(counter)
-        counter.message_count += 1
-        counter.updated_at = datetime.utcnow()
+        session.add(user_message)
+        await session.flush()
+        
+        # Get message history
+        result = await session.execute(
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at)
+        )
+        history = result.scalars().all()
+        
+        # Build messages for AI — merge consecutive user messages so GPT-4o
+        # handles multi-message bursts naturally (no user/user adjacency issues)
+        raw_messages = [{"role": m.role.value, "content": m.content} for m in history]
+        messages = _merge_consecutive_user_messages(raw_messages)
+        
+        # Build system prompt
+        system_prompt = await _build_system_prompt(conversation, profile)
+        
+        # Call AI Gateway
+        try:
+            ai_response = await service_client.call_ai(
+                messages=messages,
+                system_prompt=system_prompt
+            )
+        except Exception as e:
+            logger.error(f"❌ AI Gateway error: {e}")
+            raise HTTPException(status_code=502, detail="AI service unavailable")
+        
+        # Save assistant message
+        assistant_message = Message(
+            conversation_id=conversation_id,
+            role=MessageRole.assistant,
+            content=ai_response
+        )
+        session.add(assistant_message)
+        
+        # ── Increment message counter (free-tier tracking) ──
+        if not is_subscribed and not is_exempt:
+            counter = await session.get(MessageCounter, user_id)
+            if not counter:
+                counter = MessageCounter(user_id=user_id, message_count=0)
+                session.add(counter)
+            counter.message_count += 1
+            counter.updated_at = datetime.utcnow()
 
-    await session.commit()
-    
-    await session.refresh(user_message)
-    await session.refresh(assistant_message)
+        await session.commit()
+        
+        await session.refresh(user_message)
+        await session.refresh(assistant_message)
 
-    logger.info(f"✅ Message exchange in conversation {conversation_id}")
+        logger.info(f"✅ Message exchange in conversation {conversation_id}")
 
-    return SendMessageResponse(
-        user_message=MessageResponse(
-            id=str(user_message.id),
-            role=user_message.role,
-            content=user_message.content,
-            created_at=user_message.created_at.isoformat()
-        ),
-        assistant_message=MessageResponse(
-            id=str(assistant_message.id),
-            role=assistant_message.role,
-            content=assistant_message.content,
-            created_at=assistant_message.created_at.isoformat()
-        ),
-        new_balance=None,
-    )
+        return SendMessageResponse(
+            user_message=MessageResponse(
+                id=str(user_message.id),
+                role=user_message.role,
+                content=user_message.content,
+                created_at=user_message.created_at.isoformat()
+            ),
+            assistant_message=MessageResponse(
+                id=str(assistant_message.id),
+                role=assistant_message.role,
+                content=assistant_message.content,
+                created_at=assistant_message.created_at.isoformat()
+            ),
+            new_balance=None,
+        )
+
+
+def _merge_consecutive_user_messages(messages: list[dict]) -> list[dict]:
+    """
+    Merge consecutive user messages into one, separated by newlines.
+
+    GPT-4o requires strict user/assistant alternation. When a user sends
+    multiple messages before the assistant responds, we collapse them so
+    the model sees the full burst as a single coherent user turn.
+    """
+    if not messages:
+        return messages
+
+    merged = []
+    for msg in messages:
+        if merged and merged[-1]["role"] == msg["role"] == "user":
+            merged[-1]["content"] += "\n" + msg["content"]
+        else:
+            merged.append({"role": msg["role"], "content": msg["content"]})
+    return merged
 
 
 async def _build_system_prompt(conversation: Conversation, profile: UserProfile) -> str:
